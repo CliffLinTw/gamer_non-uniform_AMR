@@ -1,0 +1,23 @@
+#!/bin/bash
+
+#PBS -N gamer
+#PBS -M d07222009@ntu.edu.tw
+#PBS -m abe
+#PBS -q workq
+#PBS -k n
+#PBS -l walltime=72:00:00
+#PBS -l nodes=2:ppn=16   #nodes = use how many computers, one computer has only 128G
+##PBS -o stdout
+##PBS -e stderr
+##PBS -W depend=afterok:JOB_ID
+##PBS -W depend=afterany:JOB_ID
+
+if [ "$PBS_ENVIRONMENT" != "PBS_INTERACTIVE" ]; then
+   cd $PBS_O_WORKDIR
+fi
+
+#mpirun -map-by ppr:2:socket:pe=8 --report-bindings ./gamer 1>>log 2>&1  #for AMR, pe means how many threads you want to fork out
+mpirun -map-by ppr:16:socket:pe=1 --report-bindings ./gamer 1>>log 2>&1  # for FFT2, since FFT2 doesn't support openMP, only one thread is needed
+
+## script to restart a simulation automatically if the run failed
+## sh auto_restart.sh 1>>stdout 2>>stderr
