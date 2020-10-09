@@ -93,6 +93,22 @@ with h5py.File('test_with_vel.hdf5','r') as f:
         vz_hdf5 = f['level_00%d_DM_vz'%level][ghost_zone:-ghost_zone, ghost_zone:-ghost_zone, ghost_zone:-ghost_zone]
     f.close()
 
+# Bug test###################################
+#growing_factor = 5./3.
+#density_hdf5 = (growing_factor*density_hdf5+1.)
+#criteria = (density_hdf5<0.)
+#print("Percentage of over-density smaller than 0.: %.8f %%."%(100*criteria.sum()/2**(3*level)) )
+#density_hdf5[criteria] = -1.
+#vx_hdf5[criteria] = 0.
+#vy_hdf5[criteria] = 0.
+#vz_hdf5[criteria] = 0.
+#density_hdf5 = (density_hdf5+1.)**0.5
+#vx_hdf5 *= factor
+#vy_hdf5 *= factor
+#vz_hdf5 *= factor
+#############################################
+
+# Normal version#############################
 criteria = (density_hdf5<-1.)
 print("Percentage of over-density smaller than -1: %.8f %%."%(100*criteria.sum()/2**(3*level)) )
 density_hdf5[criteria] = -1.
@@ -100,14 +116,11 @@ vx_hdf5[criteria] = 0.
 vy_hdf5[criteria] = 0.
 vz_hdf5[criteria] = 0.
 
-# Bug test
-#growing_factor = 5./3.
-#density_hdf5 = (growing_factor*density_hdf5+1.)**0.5
-
 density_hdf5 = (density_hdf5+1.)**0.5
 vx_hdf5 *= factor
 vy_hdf5 *= factor
 vz_hdf5 *= factor
+#############################################
 
 # Calculate div(v)
 vx_x = GRAD(vx_hdf5, axis = 0, h=h ,order=3)
