@@ -33,10 +33,10 @@ COMPILE_VERBOSE := 0
 # physical model: HYDRO/ELBDM/PAR_ONLY (ELBDM: wave dark matter; PAR_ONLY: particle-only)
 # --> must be set in any cases; PAR_ONLY is not supported yet;
 #     ELBDM is not publicly available yet but will be released soon
-SIMU_OPTION += -DMODEL=ELBDM
+SIMU_OPTION += -DMODEL=HYDRO
 
 # enable gravity
-SIMU_OPTION += -DGRAVITY
+#SIMU_OPTION += -DGRAVITY
 
 # enable particles
 # --> must enable GRAVITY
@@ -114,11 +114,11 @@ SIMU_OPTION += -DSTORE_POT_GHOST
 
 # use unsplitting method to couple gravity to the target model (recommended)
 # --> for HYDRO only; ELBDM is not supported yet
-#SIMU_OPTION += -DUNSPLIT_GRAVITY
+SIMU_OPTION += -DUNSPLIT_GRAVITY
 
 # comoving frame for cosmological simulations
 # --> not supported for PARTICLE
-SIMU_OPTION += -DCOMOVING
+#SIMU_OPTION += -DCOMOVING
 endif # GRAVITY
 
 
@@ -150,10 +150,10 @@ SIMU_OPTION += -DMAX_PATCH=1000000
 
 # GPU acceleration
 # --> must set GPU_ARCH as well
-SIMU_OPTION += -DGPU
+#SIMU_OPTION += -DGPU
 
 # GPU architecture: FERMI/KEPLER/MAXWELL/PASCAL/VOLTA/TURING
-SIMU_OPTION += -DGPU_ARCH=TURING
+SIMU_OPTION += -DGPU_ARCH=KEPLER
 
 # debug mode
 #SIMU_OPTION += -DGAMER_DEBUG
@@ -169,19 +169,19 @@ SIMU_OPTION += -DTIMING
 #SIMU_OPTION += -DTIMING_SOLVER
 
 # double precision
-SIMU_OPTION += -DFLOAT8
+#SIMU_OPTION += -DFLOAT8
 
 # serial mode (in which no MPI libraries are required)
 # --> must disable LOAD_BALANCE
-#SIMU_OPTION += -DSERIAL
+SIMU_OPTION += -DSERIAL
 
 # load-balance parallelization: HILBERT
 # --> must disable SERIAL
-SIMU_OPTION += -DLOAD_BALANCE=HILBERT
+#SIMU_OPTION += -DLOAD_BALANCE=HILBERT
 
 # overlap MPI communication with computation
 # --> NOT supported yet; must enable LOAD_BALANCE
-SIMU_OPTION += -DOVERLAP_MPI
+#SIMU_OPTION += -DOVERLAP_MPI
 
 # enable OpenMP parallelization
 SIMU_OPTION += -DOPENMP
@@ -190,10 +190,10 @@ SIMU_OPTION += -DOPENMP
 #SIMU_OPTION += -DLAOHU
 
 # support HDF5 format
-SIMU_OPTION += -DSUPPORT_HDF5
+#SIMU_OPTION += -DSUPPORT_HDF5
 
 # support GNU scientific library
-SIMU_OPTION += -DSUPPORT_GSL
+#SIMU_OPTION += -DSUPPORT_GSL
 
 # support yt inline analysis
 #SIMU_OPTION += -DSUPPORT_LIBYT
@@ -213,51 +213,51 @@ SIMU_OPTION += -DRANDOM_NUMBER=RNG_GNU_EXT
 # intel
 # -------------------------------------------------------------------------------
 # CXX         = icpc                                      # serial compiler
-CXX         = $(MPI_PATH)/bin/mpicxx                    # MPI compiler
+##CXX         = $(MPI_PATH)/bin/mpicxx                    # MPI compiler
 ##CXX         = CC                                        # cray wrapper script
- CXXFLAG     = -g -O3                                    # general flags
+# CXXFLAG     = -g -O3                                    # general flags
 ##CXXFLAG     = -g -O3 -std=c++11 #-gxx-name=YOUR_G++
 ##CXXFLAG     = -g -fast
- CXXFLAG    += -w1                                       # warning flags
- OPENMPFLAG  = -fopenmp                                  # openmp flag
- LIB         = -limf -lgsl -lgslcblas -lgrackle                                    # libraries and linker flags
+# CXXFLAG    += -w1                                       # warning flags
+# OPENMPFLAG  = -fopenmp                                  # openmp flag
+# LIB         = -limf                                     # libraries and linker flags
 #
 ## for debug only
-ifeq "$(filter -DGAMER_DEBUG, $(SIMU_OPTION))" "-DGAMER_DEBUG"
+#ifeq "$(filter -DGAMER_DEBUG, $(SIMU_OPTION))" "-DGAMER_DEBUG"
 ##CXXFLAG    += -fstack-protector-all
 ##LIB        += -lssp
-endif
+#endif
 #
 ## suppress warning when OpenMP is disabled
-ifeq "$(filter -DOPENMP, $(SIMU_OPTION))" ""
- CXXFLAG    += -Wno-unknown-pragmas -diag-disable 3180
-endif
+#ifeq "$(filter -DOPENMP, $(SIMU_OPTION))" ""
+# CXXFLAG    += -Wno-unknown-pragmas -diag-disable 3180
+#endif
 
 
 # gnu
 # -------------------------------------------------------------------------------
-# CXX         = g++                                       # serial compiler
+ CXX         = g++                                       # serial compiler
 #CXX         = $(MPI_PATH)/bin/mpicxx                    # MPI compiler
 #CXX         = CC                                        # cray wrapper script
-# CXXFLAG     = -g -O3                                    # general flags
+ CXXFLAG     = -g -O3                                    # general flags
 #CXXFLAG     = -g -O3 -std=c++11
 #CXXFLAG     = -g -Ofast
-# CXXFLAG    += -Wall -Wextra                             # warning flags
-# CXXFLAG    += -Wno-unused-variable -Wno-unused-parameter \
+ CXXFLAG    += -Wall -Wextra                             # warning flags
+ CXXFLAG    += -Wno-unused-variable -Wno-unused-parameter \
                -Wno-maybe-uninitialized -Wno-unused-but-set-variable \
                -Wno-unused-result -Wno-unused-function
-# OPENMPFLAG  = -fopenmp                                  # openmp flag
+ OPENMPFLAG  = -fopenmp                                  # openmp flag
  LIB         =                                           # libraries and linker flags
 
 # for debug only
-#ifeq "$(filter -DGAMER_DEBUG, $(SIMU_OPTION))" "-DGAMER_DEBUG"
+ifeq "$(filter -DGAMER_DEBUG, $(SIMU_OPTION))" "-DGAMER_DEBUG"
 #CXXFLAG    += -fstack-protector-all
-#endif
+endif
 
 # suppress warning when OpenMP is disabled
-#ifeq "$(filter -DOPENMP, $(SIMU_OPTION))" ""
+ifeq "$(filter -DOPENMP, $(SIMU_OPTION))" ""
  CXXFLAG    += -Wno-unknown-pragmas
-#endif
+endif
 
 
 # CUDA
@@ -324,12 +324,12 @@ LIBYT_PATH   :=
 #LIBYT_PATH   := /home/hyschive/project/libyt/libyt.dev/libyt
 
 # NTU-eureka (default: openmpi-intel)
-CUDA_PATH    := /software/cuda/default
-FFTW_PATH    := /software/fftw/default
-MPI_PATH     := /software/openmpi/default
-HDF5_PATH    := /software/hdf5/default
-GRACKLE_PATH :=
-GSL_PATH     := /software/gsl/default
+#CUDA_PATH    := /software/cuda/default
+#FFTW_PATH    := /software/fftw/default
+#MPI_PATH     := /software/openmpi/default
+#HDF5_PATH    := /software/hdf5/default
+#GRACKLE_PATH :=
+#GSL_PATH     := /software/gsl/default
 #LIBYT_PATH   :=
 
 # NTU-hulk (openmpi-intel-qlc)
