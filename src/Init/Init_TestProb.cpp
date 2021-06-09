@@ -7,7 +7,7 @@
 void Init_TestProb_Hydro_BlastWave();
 void Init_TestProb_Hydro_AcousticWave();
 void Init_TestProb_Hydro_Bondi();
-void Init_TestProb_Hydro_ClusterMerger_vs_Flash();
+void Init_TestProb_Hydro_ClusterMerger();
 void Init_TestProb_Hydro_AGORA_IsolatedGalaxy();
 void Init_TestProb_Hydro_Caustic();
 void Init_TestProb_Hydro_SphericalCollapse();
@@ -31,6 +31,7 @@ void Init_TestProb_ELBDM_VortexPairLinear();
 void Init_TestProb_ELBDM_IsolatedHalo();
 void Init_TestProb_ELBDM_GaussianWavePacket();
 void Init_TestProb_ELBDM_LSS();
+void Init_TestProb_ELBDM_Halo_Stability_Test();
 
 
 
@@ -59,7 +60,7 @@ void Init_TestProb()
       case TESTPROB_HYDRO_BLAST_WAVE :                   Init_TestProb_Hydro_BlastWave();                   break;
       case TESTPROB_HYDRO_ACOUSTIC_WAVE :                Init_TestProb_Hydro_AcousticWave();                break;
 //    case TESTPROB_HYDRO_BONDI :                        Init_TestProb_Hydro_Bondi();                       break;
-      case TESTPROB_HYDRO_CLUSTER_MERGER_VS_FLASH :      Init_TestProb_Hydro_ClusterMerger_vs_Flash();      break;
+      case TESTPROB_HYDRO_CLUSTER_MERGER :               Init_TestProb_Hydro_ClusterMerger();               break;
       case TESTPROB_HYDRO_AGORA_ISOLATED_GALAXY :        Init_TestProb_Hydro_AGORA_IsolatedGalaxy();        break;
       case TESTPROB_HYDRO_CAUSTIC :                      Init_TestProb_Hydro_Caustic();                     break;
       case TESTPROB_HYDRO_SPHERICAL_COLLAPSE :           Init_TestProb_Hydro_SphericalCollapse();           break;
@@ -83,6 +84,7 @@ void Init_TestProb()
       case TESTPROB_ELBDM_ISOLATED_HALO :                Init_TestProb_ELBDM_IsolatedHalo();                break;
       case TESTPROB_ELBDM_GAUSSIAN_WAVE_PACKET :         Init_TestProb_ELBDM_GaussianWavePacket();          break;
       case TESTPROB_ELBDM_LSS :                          Init_TestProb_ELBDM_LSS();                         break;
+      case TESTPROB_ELBDM_HALO_STABILITY_TEST :          Init_TestProb_ELBDM_Halo_Stability_Test();         break;
 
       default: Aux_Error( ERROR_INFO, "unsupported TESTPROB_ID (%d) !!\n", TESTPROB_ID );
    } // switch( TESTPROB_ID )
