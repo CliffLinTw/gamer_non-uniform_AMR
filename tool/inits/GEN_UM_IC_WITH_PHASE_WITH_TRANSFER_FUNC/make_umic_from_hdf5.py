@@ -164,9 +164,11 @@ else:
     
     new_data_hdf5 = np.zeros((2, N, N, N))
     # Adjust to GAMER output convention
-    for i in range(N):
-         new_data_hdf5[0,i,:,:] = wf_real[:,:,i].T
-         new_data_hdf5[1,i,:,:] = wf_imag[:,:,i].T
+#    for i in range(N):
+#         new_data_hdf5[0,i,:,:] = wf_real[:,:,i].T
+#         new_data_hdf5[1,i,:,:] = wf_imag[:,:,i].T
+    new_data_hdf5[0] = np.swapaxes(wf_real,0,2)
+    new_data_hdf5[1] = np.swapaxes(wf_imag,0,2)
     if not flag_D: 
         new_data_hdf5 = new_data_hdf5.astype(np.float32)
     print("Writing wave function to binary file...")

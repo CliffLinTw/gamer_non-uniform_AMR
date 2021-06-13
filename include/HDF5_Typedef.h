@@ -76,6 +76,9 @@ struct KeyInfo_t
 
    char  *CodeVersion;
    char  *DumpWallTime;
+   char  *GitBranch;
+   char  *GitCommit;
+   long   UniqueDataID;
 
 }; // struct KeyInfo_t
 
@@ -523,7 +526,7 @@ struct InputPara_t
    int    Opt__ExtPot;
    char  *ExtPotTable_Name;
    int    ExtPotTable_NPoint[3];
-   double ExtPotTable_dh;
+   double ExtPotTable_dh[3];
    double ExtPotTable_EdgeL[3];
    int    ExtPotTable_Float8;
    int    Opt__GravityExtraMass;
