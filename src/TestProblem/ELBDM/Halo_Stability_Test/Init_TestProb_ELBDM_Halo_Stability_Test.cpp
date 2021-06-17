@@ -1,7 +1,5 @@
-#include <cstring>
 #include "GAMER.h"
 #include "TestProb.h"
-using namespace std;
 
 // problem-specific global variables
 // =======================================================================================
