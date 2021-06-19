@@ -122,6 +122,7 @@ real GetMaxPot( const int lv )
       }}} // k,j,i
    } // for (int PID=0; PID<amr->NPatchComma[lv][1]; PID++)
 
+//   printf("MaxPot = %.16e at lv %d at rank %d.\n", MaxPot, lv, MPI_Rank);
 
 // get the maximum potential in all ranks
    real MaxPot_AllRank;
