@@ -985,7 +985,9 @@ void Aux_Check_Parameter()
 #  endif
 
 #  if ( NCOMP_PASSIVE > 0 )
-#     error : ERROR : NCOMP_PASSIVE > 0 in ELBDM (currently this model does not support passive scalars) !!
+//#     error : ERROR : NCOMP_PASSIVE > 0 in ELBDM (currently this model does not support passive scalars) !!
+   if ( MPI_Rank == 0 )
+      Aux_Message( stderr, "ELBDM does not support passive scalars (NCOMP_PASSIVE = %d) !!\n", NCOMP_PASSIVE );
 #  endif
 
 #  ifdef QUARTIC_SELF_INTERACTION
@@ -1020,6 +1022,8 @@ void Aux_Check_Parameter()
    if ( ELBDM_REMOVE_MOTION_CM != ELBDM_REMOVE_MOTION_CM_NONE )
       Aux_Error( ERROR_INFO, "\"%s\" does NOT support \"%s\" !!\n", "ELBDM_REMOVE_MOTION_CM", "BITWISE_REPRODUCIBILITY" );
 #  endif
+
+   if ( OPT__NORMALIZE_PASSIVE )    Aux_Error( ERROR_INFO, "must disable OPT__NORMALIZE_PASSIVE !!\n" );
 
 
 // warnings

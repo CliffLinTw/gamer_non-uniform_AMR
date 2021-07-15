@@ -166,7 +166,8 @@
 #  define NCOMP_PASSIVE       ( NCOMP_PASSIVE_USER + NCOMP_PASSIVE_BUILTIN )
 
 // assuming all passive scalars have the corresponding fluxes
-#  define NFLUX_PASSIVE       NCOMP_PASSIVE
+//#  define NFLUX_PASSIVE       NCOMP_PASSIVE
+#  define NFLUX_PASSIVE       0
 
 
 // total number of variables in each cell and in the flux array including both active and passive variables
@@ -181,8 +182,12 @@
 
 // for ELBDM, we do not need to transfer the density component into GPU
 #elif ( MODEL == ELBDM )
+   /*
 #  define FLU_NIN             ( NCOMP_TOTAL - 1 )
 #  define FLU_NOUT            ( NCOMP_TOTAL - 0 )
+   */
+#  define FLU_NIN             ( 2 )
+#  define FLU_NOUT            ( 3 )
 
 #elif ( MODEL == PAR_ONLY )
 #  define FLU_NIN             0

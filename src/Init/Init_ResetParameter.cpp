@@ -777,7 +777,8 @@ void Init_ResetParameter()
       OPT__UM_IC_NVAR = NCOMP_TOTAL - 1;  // do not load the dual-energy field from the disk
 
 #     elif ( MODEL == ELBDM )
-      OPT__UM_IC_NVAR = NCOMP_TOTAL - 1;  // do not load the density field from the disk
+//    OPT__UM_IC_NVAR = NCOMP_TOTAL - 1;  // do not load the density field from the disk
+      OPT__UM_IC_NVAR = 2;                // do not load the density field from the disk
 
 #     else
       OPT__UM_IC_NVAR = NCOMP_TOTAL;      // load all fields

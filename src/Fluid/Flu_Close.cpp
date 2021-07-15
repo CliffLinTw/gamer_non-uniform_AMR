@@ -112,9 +112,11 @@ void Flu_Close( const int lv, const int SaveSg_Flu, const int SaveSg_Mag,
 
 
 // copy the updated data from output arrays to the corresponding patch pointers
+   /*
 #  if ( FLU_NOUT != NCOMP_TOTAL )
 #     error : ERROR : FLU_NOUT != NCOMP_TOTAL (one must specify how to copy data from h_Flu_Array_F_Out to fluid) !!
 #  endif
+   */
 
 #  pragma omp parallel for schedule( static )
    for (int TID=0; TID<NPG; TID++)

@@ -816,6 +816,7 @@ void Refine( const int lv, const UseLBFunc_t UseLBFunc )
 
 
 //          normalize passive scalars
+            /*
 #           if ( NCOMP_PASSIVE > 0 )
             if ( OPT__NORMALIZE_PASSIVE )
             {
@@ -828,6 +829,7 @@ void Refine( const int lv, const UseLBFunc_t UseLBFunc )
                for (int v=0; v<NCOMP_PASSIVE; v++)    Flu_FData[ NCOMP_FLUID + v ][k][j][i] = Passive[v];
             }
 #           endif
+            */
 
          } // i,j,k
 #        endif // #if ( MODEL == HYDRO  ||  MODEL == ELBDM )

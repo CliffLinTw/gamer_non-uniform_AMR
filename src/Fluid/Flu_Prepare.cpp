@@ -56,7 +56,8 @@ void Flu_Prepare( const int lv, const double PrepTime,
 // prepare the fluid array
 #  if ( MODEL == ELBDM )
    Prepare_PatchData( lv, PrepTime, h_Flu_Array_F_In[0][0], NULL,
-                      FLU_GHOST_SIZE, NPG, PID0_List, _REAL|_IMAG|_PASSIVE, _NONE,
+//                    FLU_GHOST_SIZE, NPG, PID0_List, _REAL|_IMAG|_PASSIVE, _NONE,
+                      FLU_GHOST_SIZE, NPG, PID0_List, _REAL|_IMAG,          _NONE,
                       OPT__FLU_INT_SCHEME, INT_NONE, UNIT_PATCHGROUP, NSIDE_26, OPT__INT_PHASE,
                       OPT__BC_FLU, BC_POT_NONE, MinDens_No, MinPres_No, MinTemp_No, DE_Consistency_No );
 #  else

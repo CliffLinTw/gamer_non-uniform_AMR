@@ -259,12 +259,14 @@ void Flu_FixUp_Flux( const int lv )
                if ( ApplyFix )
                {
 //                floor and normalize the passive scalars
+                  /*
 #                 if ( NCOMP_PASSIVE > 0 )
                   for (int v=NCOMP_FLUID; v<NCOMP_TOTAL; v++)  CorrVal[v] = FMAX( CorrVal[v], TINY_NUMBER );
 
                   if ( OPT__NORMALIZE_PASSIVE )
                      Hydro_NormalizePassive( CorrVal[DENS], CorrVal+NCOMP_FLUID, PassiveNorm_NVar, PassiveNorm_VarIdx );
 #                 endif
+                  */
 
 
 //                ensure the consistency between pressure, total energy density, and dual-energy variable

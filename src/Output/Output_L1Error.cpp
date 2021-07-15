@@ -87,6 +87,9 @@ void Output_L1Error( void (*AnalFunc_Flu)( real fluid[], const double x, const d
    sprintf( FileName[            1], "%s_Real_%06d", Prefix, DumpID );
    sprintf( FileName[            2], "%s_Imag_%06d", Prefix, DumpID );
 
+   for (int v=0; v<NCOMP_PASSIVE; v++)
+   sprintf( FileName[NCOMP_FLUID+v], "%s_Passive%02d_%06d", Prefix, v, DumpID );
+
 #  else
 #  error : unsupported MODEL !!
 #  endif // MODEL
