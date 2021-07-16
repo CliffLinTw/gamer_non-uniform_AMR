@@ -5,6 +5,7 @@
 
 // problem-specific global variables
 // =======================================================================================
+static FieldIdx_t Idx_Dens0 = Idx_Undefined;    // field index for storing the **initial** density
 // =======================================================================================
 
 
@@ -33,6 +34,10 @@ void Validate()
 
 #  ifndef GRAVITY
    Aux_Error( ERROR_INFO, "GRAVITY must be enabled !!\n" );
+#  endif
+
+#  if ( NCOMP_PASSIVE_USER == 0 )
+   if ( MPI_Rank == 0 )    Aux_Message( stderr, "WARNING : NCOMP_PASSIVE_USER == 0 !!\n" );
 #  endif
 
 
@@ -141,7 +146,77 @@ void SetGridIC( real fluid[], const double x, const double y, const double z, co
    Aux_Error( ERROR_INFO, "OPT__INIT=1 is not supported for this test problem !!\n" );
 
 } // FUNCTION : SetGridIC
+
+
+
+//-------------------------------------------------------------------------------------------------------
+// Function    :  AddNewField_ELBDM_IsolatedHalo
+// Description :  Add the problem-specific fields
+//
+// Note        :  1. Ref: https://github.com/gamer-project/gamer/wiki/Adding-New-Simulations#v-add-problem-specific-grid-fields-and-particle-attributes
+//                2. Invoke AddField() for each of the problem-specific field:
+//                   --> Field label sent to AddField() will be used as the output name of the field
+//                   --> Field index returned by AddField() can be used to access the field data
+//                3. Pre-declared field indices are put in Field.h
+//
+// Parameter   :  None
+//
+// Return      :  None
+//-------------------------------------------------------------------------------------------------------
+void AddNewField_ELBDM_IsolatedHalo()
+{
+
+#  if ( NCOMP_PASSIVE_USER > 0 )
+   Idx_Dens0 = AddField( "Dens0", NORMALIZE_NO, INTERP_FRAC_NO );
+#  endif
+
+} // FUNCTION : AddNewField_ELBDM_IsolatedHalo
+
+
+
+//-------------------------------------------------------------------------------------------------------
+// Function    :  Init_User_ELBDM_IsolatedHalo
+// Description :  Store the initial density
+//
+// Note        :  1. Invoked by Init_GAMER() using the function pointer "Init_User_Ptr",
+//                   which must be set by a test problem initializer
+//
+// Parameter   :  None
+//
+// Return      :  None
+//-------------------------------------------------------------------------------------------------------
+void Init_User_ELBDM_IsolatedHalo()
+{
+
+#  if ( NCOMP_PASSIVE_USER > 0 )
+   for (int lv=0; lv<NLEVEL; lv++)
+   for (int PID=0; PID<amr->NPatchComma[lv][1]; PID++)
+   for (int k=0; k<PS1; k++)
+   for (int j=0; j<PS1; j++)
+   for (int i=0; i<PS1; i++)
+   {
+//    store the initial density in both Sg so that we don't have to worry about which Sg to be used
+//    a. for restart, the initial density has already been loaded and we just need to copy the data to another Sg
+      if ( OPT__INIT == INIT_BY_RESTART ) {
+         const real Dens0 = amr->patch[ amr->FluSg[lv] ][lv][PID]->fluid[Idx_Dens0][k][j][i];
+
+         amr->patch[ 1-amr->FluSg[lv] ][lv][PID]->fluid[Idx_Dens0][k][j][i] = Dens0;
+      }
+
+//    b. for starting a new simulation, we must copy the initial density to both Sg
+      else {
+         const real Dens0 = amr->patch[ amr->FluSg[lv] ][lv][PID]->fluid[DENS][k][j][i];
+
+         amr->patch[   amr->FluSg[lv] ][lv][PID]->fluid[Idx_Dens0][k][j][i] = Dens0;
+         amr->patch[ 1-amr->FluSg[lv] ][lv][PID]->fluid[Idx_Dens0][k][j][i] = Dens0;
+      }
+   }
+#  endif
+
+} // FUNCTION : Init_User_ELBDM_IsolatedHalo
 #endif // #if ( MODEL == ELBDM  &&  defined GRAVITY )
+
+
 
 
 
@@ -171,6 +246,8 @@ void Init_TestProb_ELBDM_IsolatedHalo()
 
 
    Init_Function_User_Ptr = SetGridIC;
+   Init_Field_User_Ptr    = AddNewField_ELBDM_IsolatedHalo;
+   Init_User_Ptr          = Init_User_ELBDM_IsolatedHalo;
 #  endif // if ( MODEL == ELBDM  &&  defined GRAVITY )
 
 
