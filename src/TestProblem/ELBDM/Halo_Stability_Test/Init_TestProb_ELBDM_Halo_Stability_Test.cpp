@@ -1,29 +1,58 @@
 #include "GAMER.h"
 #include "TestProb.h"
+//#include "HDF5_Typedef.h"
 
 // extern functions
-void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double r_max_input, const double dr_min,
-                         const bool LogBin, const double LogBinRatio, const bool RemoveEmpty, const long TVarBitIdx[],
-                         const int NProf, const int MinLv, const int MaxLv, const PatchType_t PatchType,
-                         const double PrepTime );
+
+// This function computes desnity profil, with standare deviation 
+void Aux_ComputeProfile_with_Sigma( Profile_with_Sigma_t *Prof[], const double Center[], const double r_max_input, const double dr_min,
+                                    const bool LogBin, const double LogBinRatio, const bool RemoveEmpty, const long TVarBitIdx[],
+                                    const int NProf, const int MinLv, const int MaxLv, const PatchType_t PatchType,
+                                    const double PrepTime );
+// This function computes correlation function
+//void Aux_ComputeCorrelation( Profile_t *Correlation[], FieldIdx_t *Passive_idx[], const Profile_t *prof_init[], const double Center[],
+void Aux_ComputeCorrelation( Profile_t *Correlation[], const Profile_with_Sigma_t *prof_init[], const double Center[],
+                             const double r_max_input, const double dr_min, const bool LogBin, const double LogBinRatio,
+                             const bool RemoveEmpty, const long TVarBitIdx[], const int NProf, const int MinLv, const int MaxLv,
+                             const PatchType_t PatchType, const double PrepTime, const double dr_min_prof );
 //
+// intern functions
+void Record_CenterOfMass( bool record_flag );
 
 // problem-specific global variables
 // =======================================================================================
-static double   System_CM_MaxR;                         // maximum radius for determining System CM
-static double   System_CM_TolErrR;                      // maximum allowed errors for determining System CM
-static double   Soliton_CM_MaxR;                        // maximum radius for determining Soliton CM
-static double   Soliton_CM_TolErrR;                     // maximum allowed errors for determining Soliton CM
-static double   Histogram_bin_size;                     // histogram bin size of correlation function statistics (minimum size for logarithic bin)
-static double   LogBinRatio;                            // ratio of bin size growing rate for logarithmic bin
-static double   Radius_max;                             // maximum radius for correlation function statistics
-static double   PrepTime;                               // time for doing statistics
-static double   InitialTime;                            // starting time for calculating correlation function
-static bool     LogBin;                                 // logarithmic bin or not
-static bool     RemoveEmpty;                            // remove bins with no sample; if false, Data[empty_bin]=Weight[empty_bin]=NCell[empty_bin]=0
-static int      MinLv;                                  // do statistics from MinLv to MaxLv
-static int      MaxLv;                                  // do statistics from MinLv to MaxLv
-static Profile_t *Profile_initial[1];                      // pointer to save initial density profile;
+static FieldIdx_t Idx_Dens0 = Idx_Undefined;  // field index for storing the **initial** density
+static double   System_CM_MaxR;               // maximum radius for determining System CM
+static double   System_CM_TolErrR;            // maximum allowed errors for determining System CM
+static double   Soliton_CM_MaxR;              // maximum radius for determining Soliton CM
+static double   Soliton_CM_TolErrR;           // maximum allowed errors for determining Soliton CM
+static double   Center[3];                    // use maximum density coordinate as center
+static double   dr_min_prof;                  // bin size of correlation function statistics (minimum size if logarithic bin) (profile)
+static double   LogBinRatio_prof;             // ratio of bin size growing rate for logarithmic bin (profile)
+static double   RadiusMax_prof;               // maximum radius for correlation function statistics (profile)
+static double   dr_min_corr;                  // bin size of correlation function statistics (minimum size if logarithic bin) (correlation)
+static double   LogBinRatio_corr;             // ratio of bin size growing rate for logarithmic bin (correlation)
+static double   RadiusMax_corr;               // maximum radius for correlation function statistics (correlation)
+//static double   PrepTime;                     // time for doing statistics
+static bool     ComputeCorrelation;           // flag for compute correlation
+static bool     LogBin_prof;                  // logarithmic bin or not (profile)
+static bool     RemoveEmpty_prof;             // remove 0 sample bins; false: Data[empty_bin]=Weight[empty_bin]=NCell[empty_bin]=0 (profile)
+static bool     LogBin_corr;                  // logarithmic bin or not (correlation)
+static bool     RemoveEmpty_corr;             // remove 0 sample bins; false: Data[empty_bin]=Weight[empty_bin]=NCell[empty_bin]=0 (correlation)
+static int      MinLv;                        // do statistics from MinLv to MaxLv
+static int      MaxLv;                        // do statistics from MinLv to MaxLv
+static int      OutputCorrelationMode;        // output correlation function mode=> 0: constant interval 1: by table
+static int      StepInitial;                  // inital step for recording correlation function (OutputCorrelationMode = 0) 
+static int      StepInterval;                 // interval for recording correlation function (OutputCorrelationMode = 0)
+static int      *StepTable;                   // step index table for output correlation function (OutputCorrelationMode = 1)
+static char     FilePath_corr[MAX_STRING];    // output path for correlation function text files
+
+static int step_counter;                             // counter for caching consumed step indices
+Profile_with_Sigma_t Prof_Dens_initial;                      // pointer to save initial density profile
+Profile_with_Sigma_t *Prof[] = { &Prof_Dens_initial };
+Profile_t            Correlation_Dens;                       // pointer to save density correlation function
+Profile_t            *Correlation[] = { &Correlation_Dens };       
+//FieldIdx_t *Passive_idx[] = { &Idx_Dens0 };                // array of pointer to save indices for passive field (initial density profile here)
 // =======================================================================================
 
 //-------------------------------------------------------------------------------------------------------
@@ -101,22 +130,69 @@ void SetParameter()
 // --> note that VARIABLE, DEFAULT, MIN, and MAX must have the same data type
 // --> some handy constants (e.g., Useless_bool, Eps_double, NoMin_int, ...) are defined in "include/ReadPara.h"
 // ********************************************************************************************************************************
-// ReadPara->Add( "KEY_IN_THE_FILE",   &VARIABLE,              DEFAULT,       MIN,              MAX               );
+// ReadPara->Add( "KEY_IN_THE_FILE",          &VARIABLE,               DEFAULT,          MIN,              MAX               );
 // ********************************************************************************************************************************
-   ReadPara->Add( "System_CM_MaxR",           &System_CM_MaxR,           -1.0,           Eps_double,       NoMax_double      );
-   ReadPara->Add( "System_CM_TolErrR",        &System_CM_TolErrR,        -1.0,           NoMin_double,     NoMax_double      );
-   ReadPara->Add( "Soliton_CM_MaxR",          &Soliton_CM_MaxR,          -1.0,          Eps_double,       NoMax_double       );
-   ReadPara->Add( "Soliton_CM_TolErrR",       &Soliton_CM_TolErrR,       -1.0,          NoMin_double,     NoMax_double       );
-
+   ReadPara->Add( "System_CM_MaxR",           &System_CM_MaxR,         NoMax_double,     Eps_double,       NoMax_double      );
+   ReadPara->Add( "System_CM_TolErrR",        &System_CM_TolErrR,         0.0,           NoMin_double,     NoMax_double      );
+   ReadPara->Add( "Soliton_CM_MaxR",          &Soliton_CM_MaxR,        NoMax_double,     Eps_double,       NoMax_double      );
+   ReadPara->Add( "Soliton_CM_TolErrR",       &Soliton_CM_TolErrR,        0.0,          NoMin_double,     NoMax_double       );
+   ReadPara->Add( "ComputeCorrelation",       &ComputeCorrelation,      false,          Useless_bool,     Useless_bool       );
+   ReadPara->Add( "dr_min_corr",              &dr_min_corr,            Eps_double,       Eps_double,       NoMax_double      );
+   ReadPara->Add( "LogBinRatio_corr",         &LogBinRatio_corr,          1.0,           Eps_double,      NoMax_double       );
+   ReadPara->Add( "RadiusMax_corr",           &RadiusMax_corr,         Eps_double,       Eps_double,      NoMax_double       );
+   ReadPara->Add( "LogBin_corr",              &LogBin_corr,             false,          Useless_bool,     Useless_bool       );
+   ReadPara->Add( "RemoveEmpty_corr",         &RemoveEmpty_corr,        false,          Useless_bool,     Useless_bool       );
+   ReadPara->Add( "dr_min_prof",              &dr_min_prof,            Eps_double,       Eps_double,       NoMax_double      );
+//   ReadPara->Add( "LogBinRatio_prof",         &LogBinRatio_prof,          1.0,           Eps_double,      NoMax_double       );
+//   ReadPara->Add( "RadiusMax_prof",           &RadiusMax_prof,         NoMax_double,     Eps_double,      NoMax_double       );
+//   ReadPara->Add( "LogBin_prof",              &LogBin_prof,             false,          Useless_bool,     Useless_bool       );
+//   ReadPara->Add( "RemoveEmpty_prof",         &RemoveEmpty_prof,        false,          Useless_bool,     Useless_bool       );
+//   ReadPara->Add( "PrepTime",                 &PrepTime,                  0.0,          NoMin_double,     NoMax_double       );
+   ReadPara->Add( "MinLv",                    &MinLv,                       0,                     0,        MAX_LEVEL       );
+   ReadPara->Add( "MaxLv",                    &MaxLv,               MAX_LEVEL,                     0,        MAX_LEVEL       );
+   ReadPara->Add( "OutputCorrelationMode",    &OutputCorrelationMode,       0,                     0,             1          );
+   ReadPara->Add( "StepInitial",              &StepInitial,             NoMin_int,         NoMin_int,       NoMax_int        );
+   ReadPara->Add( "StepInterval",             &StepInterval,                1,                     1,        NoMax_int       );
+   ReadPara->Add( "FilePath_corr",            FilePath_corr,       Useless_str,           Useless_str,      Useless_str      );
    ReadPara->Read( FileName );
 
    delete ReadPara;
 
 // (1-2) set the default values
-   if ( System_CM_TolErrR < 0.0 )  System_CM_TolErrR = 1.0*amr->dh[MAX_LEVEL];
+   if ( System_CM_TolErrR < 0.0 )           System_CM_TolErrR = 1.0*amr->dh[MAX_LEVEL];
+   if ( Soliton_CM_TolErrR < 0.0 )          Soliton_CM_TolErrR = 1.0*amr->dh[MAX_LEVEL];
+
+   if (ComputeCorrelation)
+   {
+       if ( dr_min_corr <=Eps_double )          dr_min_corr = 1e-3*0.5*amr->BoxSize[0];
+       if ( RadiusMax_corr<=Eps_double )        RadiusMax_corr = 0.5*amr->BoxSize[0];
+       if ( LogBinRatio_corr<=1.0 )             LogBinRatio_corr = 2.0;
+
+       if ( dr_min_prof <=Eps_double )          dr_min_prof = dr_min_corr;
+            RadiusMax_prof                      = RadiusMax_corr * 1.05;   // assigned by Test Problem
+            LogBinRatio_prof                    = 1.0;                     // assigned by Test Problem (no effect)
+            LogBin_prof                         = false;                   // assigned by Test Problem
+            RemoveEmpty_prof                    = false;                   // assigned by Test Problem
+
+       if ( MinLv < 0 ) MinLv = 0;
+       if ( MaxLv <= MinLv ) MaxLv = MAX_LEVEL;
+       if ( OutputCorrelationMode>1 ) OutputCorrelationMode = 0;
+       if ( (OutputCorrelationMode==0) && (StepInterval<1) ) StepInterval = 1;
+       if ( FilePath_corr == Useless_str )  sprintf( FilePath_corr, "./" );
+       else
+       { 
+          FILE *file_checker = fopen(FilePath_corr, "r");
+          if (!file_checker)
+             Aux_Error( ERROR_INFO, "File path %s for saving correlation function text files does not exist!! Please create!!\n", FilePath_corr );
+          else
+             fclose(file_checker);
+       }
+   }
+   
 
 // (1-3) check the runtime parameters
-
+   if ( OPT__INIT == INIT_BY_FUNCTION )
+      Aux_Error( ERROR_INFO, "OPT__INIT=1 is not supported for this test problem !!\n" );
 
 // (2) set the problem-specific derived parameters
 
@@ -126,27 +202,40 @@ void SetParameter()
    const long   End_Step_Default = __INT_MAX__;
    const double End_T_Default    = __FLT_MAX__;
 
-   if ( END_STEP < 0 ) {
-      END_STEP = End_Step_Default;
-      PRINT_WARNING( "END_STEP", END_STEP, FORMAT_LONG );
-   }
-
-   if ( END_T < 0.0 ) {
-      END_T = End_T_Default;
-      PRINT_WARNING( "END_T", END_T, FORMAT_REAL );
-   }
-
+//   if ( END_STEP < 0 ) {
+//      END_STEP = End_Step_Default;
+//      PRINT_WARNING( "END_STEP", END_STEP, FORMAT_LONG );
+//   }
 
 // (4) make a note
    if ( MPI_Rank == 0 )
    {
-      Aux_Message( stdout, "=============================================================================\n" );
-      Aux_Message( stdout, "  test problem ID           = %d\n",     TESTPROB_ID );
-      Aux_Message( stdout, "  system CM max radius                     = %13.6e\n", System_CM_MaxR            );
-      Aux_Message( stdout, "  system CM tolerated error                = %13.6e\n", System_CM_TolErrR         );
-      Aux_Message( stdout, "  soliton CM max radius                    = %13.6e\n", Soliton_CM_MaxR           );
-      Aux_Message( stdout, "  soliton CM tolerated error               = %13.6e\n", Soliton_CM_TolErrR        );
-      Aux_Message( stdout, "=============================================================================\n" );
+      Aux_Message( stdout, "=================================================================================\n" );
+      Aux_Message( stdout, "  test problem ID                             = %d\n",     TESTPROB_ID               );
+      Aux_Message( stdout, "  system CM max radius                        = %13.6e\n", System_CM_MaxR            );
+      Aux_Message( stdout, "  system CM tolerated error                   = %13.6e\n", System_CM_TolErrR         );
+      Aux_Message( stdout, "  soliton CM max radius                       = %13.6e\n", Soliton_CM_MaxR           );
+      Aux_Message( stdout, "  soliton CM tolerated error                  = %13.6e\n", Soliton_CM_TolErrR        );
+      Aux_Message( stdout, "  compute correlation                         = %d\n"    , ComputeCorrelation        );
+      if (ComputeCorrelation)
+      {
+         Aux_Message( stdout, "  histogram bin size  (correlation)           = %13.6e\n", dr_min_corr            );
+         Aux_Message( stdout, "  log gin ratio       (correlation)           = %13.6e\n", LogBinRatio_corr       );
+         Aux_Message( stdout, "  radius maximum      (correlation)           = %13.6e\n", RadiusMax_corr         );
+         Aux_Message( stdout, "  use logarithmic bin (correlation)           = %d\n"    , LogBin_corr            );
+         Aux_Message( stdout, "  remove empty bin    (correlation)           = %d\n"    , RemoveEmpty_corr       );
+         Aux_Message( stdout, "  histogram bin size  (profile)               = %13.6e\n", dr_min_prof            );
+         Aux_Message( stdout, "  log gin ratio       (profile, no effect)    = %13.6e\n", LogBinRatio_prof       );
+         Aux_Message( stdout, "  radius maximum      (profile, assigned)     = %13.6e\n", RadiusMax_prof         );
+         Aux_Message( stdout, "  use logarithmic bin (profile, assigned)     = %d\n"    , LogBin_prof            );
+         Aux_Message( stdout, "  remove empty bin    (profile, assigned)     = %d\n"    , RemoveEmpty_prof       );
+//         Aux_Message( stdout, "  prepare time                                = %13.6e\n", PrepTime               );
+         Aux_Message( stdout, "  minimum level                               = %d\n"    , MinLv                  );
+         Aux_Message( stdout, "  maximum level                               = %d\n"    , MaxLv                  );
+         Aux_Message( stdout, "  output correlation function mode            = %d\n"    , OutputCorrelationMode  );
+         Aux_Message( stdout, "  file path for correlation text file         = %s\n"    , FilePath_corr          );
+      }
+      Aux_Message( stdout, "=================================================================================\n" );
    }
 
    if ( MPI_Rank == 0 )    Aux_Message( stdout, "   Setting runtime parameters ... done\n" );
@@ -154,6 +243,194 @@ void SetParameter()
 } // FUNCTION : SetParameter
 
 
+//-------------------------------------------------------------------------------------------------------
+// Function    :  Init_Load_StepTable
+// Description :  Load the dump table from the file "Input__StepTable"
+//-------------------------------------------------------------------------------------------------------
+void Init_Load_StepTable()
+{
+
+   if ( MPI_Rank == 0 )    Aux_Message( stdout, "Init_Load_StepTable ...\n" );
+
+
+   const char FileName[] = "Input__StepTable";
+
+   if ( !Aux_CheckFileExist(FileName) )   Aux_Error( ERROR_INFO, "file \"%s\" does not exist !!\n", FileName );
+
+   FILE *File = fopen( FileName, "r" );
+
+   const int MaxLine = 10000;
+   char *input_line = NULL;
+   size_t len = 0;
+   int Trash, line, n;
+
+
+// allocate the step table
+   StepTable = new int [MaxLine];
+
+
+// skip the header
+   getline( &input_line, &len, File );
+
+// begin to read
+   for (line=0; line<MaxLine; line++)
+   {
+      n = getline( &input_line, &len, File );
+
+//    check
+      if ( n <= 1 )
+         Aux_Error( ERROR_INFO, "incorrect reading at line %d of the file <%s> !!\n", line+2, FileName );
+
+      sscanf( input_line, "%d%d", &Trash, &StepTable[line] );
+
+//    stop the reading
+      if ( input_line[0] == 42 )                   // '*' == 42
+      {
+
+//       ensure that at least one step index is loaded
+         if ( line == 0 )
+            Aux_Error( ERROR_INFO, "please provide at least one step index in the step table !!\n" );
+
+         int StepTable_NDump   = line;             // record the number of step indices
+         StepTable[line]   = __INT_MAX__;          // set the next step as an extremely large number
+
+         if ( StepTable[line-1] < END_STEP )
+         {
+            END_STEP          = StepTable[line-1];    // reset the ending time as the time of the last step
+
+            if ( MPI_Rank == 0 )
+               Aux_Message( stdout, "NOTE : the END_STEP is reset to the time of the last step index = %de\n",
+                            END_STEP );
+         }
+
+
+//       verify the loaded dump table
+         for (int t=1; t<=line; t++)
+         {
+            if ( StepTable[t] < StepTable[t-1] )
+               Aux_Error( ERROR_INFO, "values recorded in \"%s\" must be monotonically increasing !!\n",
+                          FileName );
+         }
+
+         break;
+
+      } // if ( input_line[0] == 42 )
+   } // for (line=0; line<MaxLine; line++)
+
+
+   if ( line == MaxLine )
+      Aux_Error( ERROR_INFO, "please prepare a symbol * in the end of the file <%s> !!\n", FileName );
+
+
+   fclose( File );
+
+   if ( input_line != NULL )     free( input_line );
+
+
+   if ( MPI_Rank == 0 )    Aux_Message( stdout, "Init_Load_StepTable ... done\n" );
+
+} // FUNCTION : Init_Load_StepTable
+
+
+//-------------------------------------------------------------------------------------------------------
+// Function    :  AddNewField_ELBDM_Halo_Stability_Test
+// Description :  Add the problem-specific fields
+//
+// Note        :  1. Ref: https://github.com/gamer-project/gamer/wiki/Adding-New-Simulations#v-add-problem-specific-grid-fields-and-particle-attributes
+//                2. Invoke AddField() for each of the problem-specific field:
+//                   --> Field label sent to AddField() will be used as the output name of the field
+//                   --> Field index returned by AddField() can be used to access the field data
+//                3. Pre-declared field indices are put in Field.h
+//
+// Parameter   :  None
+//
+// Return      :  None
+//-------------------------------------------------------------------------------------------------------
+void AddNewField_ELBDM_Halo_Stability_Test(void)
+{
+
+#  if ( NCOMP_PASSIVE_USER > 0 )
+   Idx_Dens0 = AddField( "Dens0", NORMALIZE_NO, INTERP_FRAC_NO );
+//   if ( MPI_Rank == 0 )   printf("Idx_Dens0 = %d \n", Idx_Dens0);
+#  endif
+
+} // FUNCTION : AddNewField_ELBDM_Halo_Stability_Test
+
+
+//-------------------------------------------------------------------------------------------------------
+// Function    :  Init_User_ELBDM_Halo_Stability_Test
+// Description :  Store the initial density
+//
+// Note        :  1. Invoked by Init_GAMER() using the function pointer "Init_User_Ptr",
+//                   which must be set by a test problem initializer
+//
+// Parameter   :  None
+//
+// Return      :  None
+//-------------------------------------------------------------------------------------------------------
+void Init_User_ELBDM_Halo_Stability_Test(void)
+{
+
+#  if ( NCOMP_PASSIVE_USER > 0 )
+   for (int lv=0; lv<NLEVEL; lv++)
+   for (int PID=0; PID<amr->NPatchComma[lv][1]; PID++)
+   for (int k=0; k<PS1; k++)
+   for (int j=0; j<PS1; j++)
+   for (int i=0; i<PS1; i++)
+   {
+//    store the initial density in both Sg so that we don't have to worry about which Sg to be used
+//    a. for restart, the initial density has already been loaded and we just need to copy the data to another Sg
+      if ( OPT__INIT == INIT_BY_RESTART ) {
+         const real Dens0 = amr->patch[ amr->FluSg[lv] ][lv][PID]->fluid[Idx_Dens0][k][j][i];
+
+         amr->patch[ 1-amr->FluSg[lv] ][lv][PID]->fluid[Idx_Dens0][k][j][i] = Dens0;
+      }
+
+//    b. for starting a new simulation, we must copy the initial density to both Sg
+      else {
+         const real Dens0 = amr->patch[ amr->FluSg[lv] ][lv][PID]->fluid[DENS][k][j][i];
+
+         amr->patch[   amr->FluSg[lv] ][lv][PID]->fluid[Idx_Dens0][k][j][i] = Dens0;
+         amr->patch[ 1-amr->FluSg[lv] ][lv][PID]->fluid[Idx_Dens0][k][j][i] = Dens0;
+      }
+   }
+
+   if (ComputeCorrelation)
+   {
+       step_counter = 0;
+       if ( StepInitial < 0 ) StepInitial = 0;
+       const double InitialTime = Time[0];
+       if ( OutputCorrelationMode == 0)
+       {
+          if ( MPI_Rank==0 ) Aux_Message( stdout, "StepInitial = %d ; StepInterval = %d \n", StepInitial, StepInterval);
+       }
+       else if ( OutputCorrelationMode == 1)
+          Init_Load_StepTable();
+       if ( MPI_Rank == 0 )  Aux_Message( stdout, "InitialTime = %13.6e \n", InitialTime );
+
+       // compute the enter position for passive field
+       if ( MPI_Rank == 0 )  Aux_Message( stdout, "Calculate halo center for passive field:\n");
+
+       bool record_flag = false;
+       Record_CenterOfMass( record_flag );
+       if ( MPI_Rank == 0 )  Aux_Message( stdout, "Center of passive field is ( %13.6e,%13.6e,%13.6e )\n", Center[0], Center[1], Center[2] );
+       // commpute density profile for passive field;
+       if ( MPI_Rank == 0 )  Aux_Message( stdout, "Calculate density profile for passive field:\n");
+
+       const long TVar[] = {BIDX(Idx_Dens0)};
+       Aux_ComputeProfile_with_Sigma( Prof, Center, RadiusMax_prof, dr_min_prof, LogBin_prof, LogBinRatio_prof, RemoveEmpty_prof, TVar, 1, MinLv, MaxLv, PATCH_LEAF, InitialTime );
+
+       char Filename[MAX_STRING];
+       sprintf( Filename, "%s/initial_profile_with_Sigma.txt", FilePath_corr );
+       FILE *output_initial_prof = fopen(Filename, "w");
+       for (int b=0; b<Prof[0]->NBin; b++)
+           fprintf( output_initial_prof, "%20.14e  %21.14e  %21.14e  %21.14e  %10ld\n",
+                    Prof[0]->Radius[b], Prof[0]->Data[b], Prof[0]->Data_Sigma[b], Prof[0]->Weight[b], Prof[0]->NCell[b] );
+       fclose(output_initial_prof);
+   }
+#  endif
+
+} // FUNCTION : Init_User_ELBDM_Halo_Stability_Test
 
 //-------------------------------------------------------------------------------------------------------
 // Function    :  SetGridIC
@@ -212,18 +489,17 @@ void BC_HALO( real fluid[], const double x, const double y, const double z, cons
 
 } // FUNCTION : BC_HALO
 
-#endif // #if ( MODEL == ELBDM && defined GRAVITY )
 
 //-------------------------------------------------------------------------------------------------------
 // Function    :  GetCenterOfMass
 // Description :  Record the center of mass (CM)
 //
-// Note        :  1. Invoked by Record_CenterOfMass() recursively
+// Note        :  1. Invoked by Record_CenterOfMass recursively
 //                2. Only include cells within CM_MaxR from CM_Old[] when updating CM
 //
 // Parameter   :  CM_Old[] : Previous CM
 //                CM_New[] : New CM to be returned
-void GetCenterOfMass( const double CM_Old[], double CM_New[], const double CM_MaxR )
+void GetCenterOfMass( bool record_flag, const double CM_Old[], double CM_New[], const double CM_MaxR )
 {
 
    const double CM_MaxR2          = SQR( CM_MaxR );
@@ -234,6 +510,10 @@ void GetCenterOfMass( const double CM_Old[], double CM_New[], const double CM_Ma
    const real   MinPres_No        = -1.0;
    const real   MinTemp_No        = -1.0;
    const bool   DE_Consistency_No = false;
+
+   long DensMode;
+   if (record_flag)       DensMode  = _TOTAL_DENS;
+   else                   DensMode  = BIDX(Idx_Dens0);
 
    int   *PID0List = NULL;
    double M_ThisRank, MR_ThisRank[3], M_AllRank, MR_AllRank[3];
@@ -252,7 +532,10 @@ void GetCenterOfMass( const double CM_Old[], double CM_New[], const double CM_Ma
 
       for (int PID0=0, t=0; PID0<amr->NPatchComma[lv][1]; PID0+=8, t++)    PID0List[t] = PID0;
 
-      Prepare_PatchData( lv, Time[lv], TotalDens[0][0][0], NULL, 0, amr->NPatchComma[lv][1]/8, PID0List, _TOTAL_DENS, _NONE,
+//      Prepare_PatchData( lv, Time[lv], TotalDens[0][0][0], NULL, 0, amr->NPatchComma[lv][1]/8, PID0List, _TOTAL_DENS, _NONE,
+//                         OPT__RHO_INT_SCHEME, INT_NONE, UNIT_PATCH, NSIDE_00, IntPhase_No, OPT__BC_FLU, BC_POT_NONE,
+//                         MinDens_No, MinPres_No, MinTemp_No, DE_Consistency_No );
+      Prepare_PatchData( lv, Time[lv], TotalDens[0][0][0], NULL, 0, amr->NPatchComma[lv][1]/8, PID0List, DensMode, _NONE,
                          OPT__RHO_INT_SCHEME, INT_NONE, UNIT_PATCH, NSIDE_00, IntPhase_No, OPT__BC_FLU, BC_POT_NONE,
                          MinDens_No, MinPres_No, MinTemp_No, DE_Consistency_No );
 
@@ -337,21 +620,26 @@ void GetCenterOfMass( const double CM_Old[], double CM_New[], const double CM_Ma
 //                2. For the center coordinates, it will record the position of maximum density, minimum potential,
 //                   and center-of-mass
 //                3. Output filename is fixed to "Record__Center"
+//                4. Use "record_flag" to determine whether record all data in "Record__Center" or not
+//                5. When simulation starts, this function will be called to calculate center of whole halo for calculating initial density 
+//                   profile, which will be used to calculate correlation function, if ComputeCorrelation is true.
 //
 // Parameter   :  None
 //
 // Return      :  None
 //-------------------------------------------------------------------------------------------------------
-void Record_CenterOfMass(void )
+void Record_CenterOfMass( bool record_flag )
 {
-
    const char filename_center  [] = "Record__Center";
    const int  CountMPI            = 10;
 
    double dens, max_dens_loc=-__DBL_MAX__, max_dens_pos_loc[3], real_loc, imag_loc;
    double pote, min_pote_loc=+__DBL_MAX__, min_pote_pos_loc[3];
    double send[CountMPI], (*recv)[CountMPI]=new double [MPI_NRank][CountMPI];
-   const long   DensMode          = _TOTAL_DENS;
+   long   DensMode;
+   if (record_flag)       DensMode  = _TOTAL_DENS;
+   else                   DensMode  = BIDX(Idx_Dens0);
+//   const long DensMode  = _TOTAL_DENS;
 
    const bool   IntPhase_No       = false;
    const real   MinDens_No        = -1.0;
@@ -383,8 +671,9 @@ void Record_CenterOfMass(void )
          for (int j=0; j<PS1; j++)  {  const double y = amr->patch[0][lv][PID]->EdgeL[1] + (j+0.5)*amr->dh[lv];
          for (int i=0; i<PS1; i++)  {  const double x = amr->patch[0][lv][PID]->EdgeL[0] + (i+0.5)*amr->dh[lv];
 
-//          dens = amr->patch[ amr->FluSg[lv] ][lv][PID]->fluid[DENS][k][j][i];
             dens = TotalDens[PID][k][j][i];
+//            if ( !record_flag )         dens = amr->patch[ amr->FluSg[lv] ][lv][PID]->fluid[Idx_Dens0][k][j][i];   // set as passive field
+//            else                        dens = TotalDens[PID][k][j][i];                                            // set as density field
             pote = amr->patch[ amr->PotSg[lv] ][lv][PID]->pot[k][j][i];
 
             if ( dens > max_dens_loc )
@@ -425,7 +714,6 @@ void Record_CenterOfMass(void )
 
    MPI_Gather( send, CountMPI, MPI_DOUBLE, recv[0], CountMPI, MPI_DOUBLE, 0, MPI_COMM_WORLD );
 
-
 // record the maximum density and center coordinates
    double max_dens      = -__DBL_MAX__;
    double min_pote      = +__DBL_MAX__;
@@ -457,29 +745,32 @@ void Record_CenterOfMass(void )
 
       static bool FirstTime = true;
 
-      if ( FirstTime )
+      if (record_flag)
       {
-         if ( Aux_CheckFileExist(filename_center) )
-            Aux_Message( stderr, "WARNING : file \"%s\" already exists !!\n", filename_center );
-         else
+         if ( FirstTime )
          {
-            FILE *file_center = fopen( filename_center, "w" );
-            fprintf( file_center, "#%19s  %10s  %14s  %14s  %14s  %14s  %14s  %14s  %14s  %14s  %14s  %14s  %10s  %14s  %14s  %14s %10s  %14s  %14s  %14s\n",
-                     "Time", "Step", "Dens", "Real", "Imag", "Dens_x", "Dens_y", "Dens_z", "Pote", "Pote_x", "Pote_y", "Pote_z",
-                     "NIter_h", "CM_x_h", "CM_y_h", "CM_z_h",
-                     "NIter_s", "CM_x_s", "CM_y_s", "CM_z_s");
-            fclose( file_center );
+            if ( Aux_CheckFileExist(filename_center) )
+               Aux_Message( stderr, "WARNING : file \"%s\" already exists !!\n", filename_center );
+            else
+            {
+               FILE *file_center = fopen( filename_center, "w" );
+               fprintf( file_center, "#%19s  %10s  %14s  %14s  %14s  %14s  %14s  %14s  %14s  %14s  %14s  %14s  %10s  %14s  %14s  %14s %10s  %14s  %14s  %14s\n",
+                        "Time", "Step", "Dens", "Real", "Imag", "Dens_x", "Dens_y", "Dens_z", "Pote", "Pote_x", "Pote_y", "Pote_z",
+                        "NIter_h", "CM_x_h", "CM_y_h", "CM_z_h",
+                        "NIter_s", "CM_x_s", "CM_y_s", "CM_z_s");
+               fclose( file_center );
+            }
+
+            FirstTime = false;
          }
 
-         FirstTime = false;
-      }
-
-      FILE *file_center = fopen( filename_center, "a" );
-      fprintf( file_center, "%20.14e  %10ld  %14.7e  %14.7e  %14.7e  %14.7e  %14.7e  %14.7e  %14.7e  %14.7e  %14.7e  %14.7e",
-               Time[0], Step, recv[max_dens_rank][0], recv[max_dens_rank][1], recv[max_dens_rank][2], recv[max_dens_rank][3],
-                              recv[max_dens_rank][4], recv[max_dens_rank][5], recv[min_pote_rank][6], recv[min_pote_rank][7],
-                              recv[min_pote_rank][8], recv[min_pote_rank][9] );
-      fclose( file_center );
+         FILE *file_center = fopen( filename_center, "a" );
+         fprintf( file_center, "%20.14e  %10ld  %14.7e  %14.7e  %14.7e  %14.7e  %14.7e  %14.7e  %14.7e  %14.7e  %14.7e  %14.7e",
+                  Time[0], Step, recv[max_dens_rank][0], recv[max_dens_rank][1], recv[max_dens_rank][2], recv[max_dens_rank][3],
+                                 recv[max_dens_rank][4], recv[max_dens_rank][5], recv[min_pote_rank][6], recv[min_pote_rank][7],
+                                 recv[min_pote_rank][8], recv[min_pote_rank][9] );
+         fclose( file_center );
+      } // end of record_flag = true
    } // if ( MPI_Rank == 0 )
 
 
@@ -502,9 +793,9 @@ void Record_CenterOfMass(void )
        while ( true )
        {
           if (repeat==0)
-              GetCenterOfMass( CM_Old, CM_New, System_CM_MaxR );
+              GetCenterOfMass( record_flag, CM_Old, CM_New, System_CM_MaxR );
           else
-              GetCenterOfMass( CM_Old, CM_New, Soliton_CM_MaxR );
+              GetCenterOfMass( record_flag, CM_Old, CM_New, Soliton_CM_MaxR );
     
           dR2 = SQR( CM_Old[0] - CM_New[0] )
               + SQR( CM_Old[1] - CM_New[1] )
@@ -522,23 +813,75 @@ void Record_CenterOfMass(void )
           if ( dR2 > TolErrR2 )
              Aux_Message( stderr, "WARNING : dR (%13.7e) > System_CM_TolErrR (%13.7e) !!\n", sqrt(dR2), System_CM_TolErrR );
     
-          FILE *file_center = fopen( filename_center, "a" );
-          if (repeat==0)
-              fprintf( file_center, "  %10d  %14.7e  %14.7e  %14.7e", NIter, CM_New[0], CM_New[1], CM_New[2] );
-          else
-              fprintf( file_center, "  %10d  %14.7e  %14.7e  %14.7e\n", NIter, CM_New[0], CM_New[1], CM_New[2] );
-          fclose( file_center );
+          if (record_flag)
+          {
+             FILE *file_center = fopen( filename_center, "a" );
+             if (repeat==0)
+                 fprintf( file_center, "  %10d  %14.7e  %14.7e  %14.7e", NIter, CM_New[0], CM_New[1], CM_New[2] );
+             else
+                 fprintf( file_center, "  %10d  %14.7e  %14.7e  %14.7e\n", NIter, CM_New[0], CM_New[1], CM_New[2] );
+             fclose( file_center );
+          }
        }
-   }
-
-
-   const long TVar[] = {_DENS};
-   if (Time[0]==InitialTime)
-       Aux_ComputeProfile( Profile_initial, CM_New, Radius_max, Histogram_bin_size, LogBin, LogBinRatio, RemoveEmpty, TVar, 1, MinLv, MaxLv, PATCH_LEAF, PrepTime );
+       if ( (!record_flag) && (repeat==0) )
+       {
+// Only cached the center coordinate by maximum density point of whole halo for passive field, when simuliation BEGINS!!
+           for (int i=0; i<3; i++)
+               Center[i] = CM_New[i];
+           
+           break;  // break the for loop since only CoM of whole halo is needed for passive field
+// 
+       }
+   }  // end of for loop for repeat = 2
 
    delete [] recv;
 
 } // FUNCTION : Record_CenterOfMass
+
+
+//-------------------------------------------------------------------------------------------------------
+// Function    :  Do_COM_and_CF
+// Description :  Do record center of mass and calculate correlation function 
+//
+// Note        :  1. It will call center of mass routine 
+//                2. For the center coordinates, it will record the position of maximum density, minimum potential,
+//                   and center-of-mass
+//                3. Output filename is fixed to "Record__Center"
+//
+// Parameter   :  None
+//
+// Return      :  None
+//-------------------------------------------------------------------------------------------------------
+void Do_COM_and_CF( void )
+{
+   bool record_flag = true;
+   Record_CenterOfMass( record_flag );
+   
+// Compute correlation if ComputeCorrelation flag is true
+   if (ComputeCorrelation)
+   {
+      if ( ((OutputCorrelationMode==1) && (Step==StepTable[step_counter])) || ((OutputCorrelationMode==0) && (Step>=StepInitial) && (((Step-StepInitial)%StepInterval)==0)) )
+      {
+         const long TVar[] = {_DENS};
+         if ( MPI_Rank == 0 )    Aux_Message( stdout, "calculate correlation function at step = %d , prepared time =  %20.14e:\n", Step, Time[0] );
+//         Aux_ComputeCorrelation( Correlation, Passive_idx, Prof, Center, RadiusMax_corr, dr_min_corr, LogBin_corr, LogBinRatio_corr,
+         Aux_ComputeCorrelation( Correlation, Prof, Center, RadiusMax_corr, dr_min_corr, LogBin_corr, LogBinRatio_corr,
+                                 RemoveEmpty_corr, TVar, 1, MinLv, MaxLv, PATCH_LEAF, Time[0], dr_min_prof);
+         char Filename[MAX_STRING];
+         sprintf( Filename, "%s/correlation_function_t=%.4e.txt", FilePath_corr, Time[0] );
+         FILE *output_correlation = fopen(Filename, "w");
+         for (int b=0; b<Correlation[0]->NBin; b++)
+             fprintf( output_correlation, "%20.14e  %21.14e  %21.14e  %10ld\n",
+                      Correlation[0]->Radius[b], Correlation[0]->Data[b], Correlation[0]->Weight[b], Correlation[0]->NCell[b] );
+         fclose(output_correlation);
+
+         // accumulate the step counter
+         step_counter ++;
+      }
+   }  // end of if ComputeCorrelation
+}
+#endif // #if ( MODEL == ELBDM  &&  defined GRAVITY )
+
 
 //-------------------------------------------------------------------------------------------------------
 // Function    :  Init_TestProb_ELBDM_Halo_Stability_Test
@@ -555,6 +898,9 @@ void Init_TestProb_ELBDM_Halo_Stability_Test()
 
    if ( MPI_Rank == 0 )    Aux_Message( stdout, "%s ...\n", __FUNCTION__ );
 
+//#  if ( NCOMP_PASSIVE_USER > 0 )
+//   if ( MPI_Rank == 0)     Aux_Message( stdout, "NCOMP_PASSIVE_USER = %d \n", NCOMP_PASSIVE);
+//#  endif
 
 // validate the compilation flags and runtime parameters
    Validate();
@@ -564,10 +910,11 @@ void Init_TestProb_ELBDM_Halo_Stability_Test()
 // set the problem-specific runtime parameters
    SetParameter();
 
-
    Init_Function_User_Ptr = SetGridIC;
+   Init_Field_User_Ptr    = AddNewField_ELBDM_Halo_Stability_Test;
    BC_User_Ptr            = BC_HALO;
-   Aux_Record_User_Ptr    = Record_CenterOfMass;
+   Aux_Record_User_Ptr    = Do_COM_and_CF;
+   Init_User_Ptr          = Init_User_ELBDM_Halo_Stability_Test;
 #  endif // #if ( MODEL == ELBDM  &&  defined GRAVITY )
 
 // replace HYDRO by the target model (e.g., MHD/ELBDM) and also check other compilation flags if necessary (e.g., GRAVITY/PARTICLE)

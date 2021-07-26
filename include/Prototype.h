@@ -39,6 +39,15 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
                          const bool LogBin, const double LogBinRatio, const bool RemoveEmpty, const long TVarBitIdx[],
                          const int NProf, const int MinLv, const int MaxLv, const PatchType_t PatchType,
                          const double PrepTime );
+void Aux_ComputeProfile_with_Sigma( Profile_with_Sigma_t *Prof[], const double Center[], const double r_max_input, const double dr_min,
+                                    const bool LogBin, const double LogBinRatio, const bool RemoveEmpty, const long TVarBitIdx[],
+                                    const int NProf, const int MinLv, const int MaxLv, const PatchType_t PatchType,
+                                    const double PrepTime );
+//void Aux_ComputeCorrelation( Profile_t *Correlation[], FieldIdx_t *Passive_idx[], const Profile_t *prof_init[], const double Center[],
+void Aux_ComputeCorrelation( Profile_t *Correlation[], const Profile_with_Sigma_t *prof_init[], const double Center[],
+                             const double r_max_input, const double dr_min, const bool LogBin, const double LogBinRatio,
+                             const bool RemoveEmpty, const long TVarBitIdx[], const int NProf, const int MinLv, const int MaxLv,
+                             const PatchType_t PatchType, const double PrepTime, const double dr_min_prof );
 #ifndef SERIAL
 void Aux_Record_BoundaryPatch( const int lv, int *NList, int **IDList, int **PosList );
 #endif
