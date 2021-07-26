@@ -4,19 +4,80 @@ extern void SetTempIntPara( const int lv, const int Sg_Current, const double Pre
                             bool &IntTime, int &Sg, int &Sg_IntT, real &Weighting, real &Weighting_IntT );
 
 
+//-------------------------------------------------------------------------------------------------------
+// Function    :  Interpolate
+// Description :  Interpolate the initial density for a given radius
+//
+// Note        :  None
+//
+// Parameter   :  None
+//
+// Return      :  None
+//-------------------------------------------------------------------------------------------------------
+void InterpolateDensity(real *mean_inter, real *std_inter, const Profile_with_Sigma_t *prof_init[], const int NProf, const int bin_index, const double r)
+{
+   double delta_r, x;
+   if (r>prof_init[0]->Radius[bin_index])
+   {
+      int bin_index_right = bin_index+1;
+      delta_r             = prof_init[0]->Radius[bin_index_right] - prof_init[0]->Radius[bin_index];
+      x                   = (r - prof_init[0]->Radius[bin_index]) / delta_r;
+//    check x 
+      if (x<(real)(0.0))
+         Aux_Error( ERROR_INFO, "x (%14.7e) < 0.0 !!\n", x );
+      else if (x>(real)(1.0))
+         Aux_Error( ERROR_INFO, "x (%14.7e) > 1.0 !!\n", x );
+//    interpolate
+      for  (int i=0; i<NProf; i++)
+      {
+         mean_inter[i] = prof_init[i]->Data      [bin_index]*(real)(1.-x) + prof_init[i]->Data      [bin_index_right]*(real)x;
+         std_inter[i]  = prof_init[i]->Data_Sigma[bin_index]*(real)(1.-x) + prof_init[i]->Data_Sigma[bin_index_right]*(real)x;
+      }
+   }
+   else
+   {
+//    no left hand side bin, no interpolation
+      if (bin_index==0)
+      {
+         for (int i=0; i<NProf; i++)
+         {
+            mean_inter[i] = prof_init[i]->Data      [bin_index];
+            std_inter[i]  = prof_init[i]->Data_Sigma[bin_index];
+         }
+      }
+      else
+      {
+         int bin_index_left  = bin_index-1;
+         delta_r             = prof_init[0]->Radius[bin_index] - prof_init[0]->Radius[bin_index_left];
+         x                   = (r - prof_init[0]->Radius[bin_index_left]) / delta_r;
+//       check x 
+         if (x<(real)(0.0))
+            Aux_Error( ERROR_INFO, "x (%14.7e) < 0.0 !!\n", x );
+         else if (x>(real)(1.0))
+            Aux_Error( ERROR_INFO, "x (%14.7e) > 1.0 !!\n", x );
+//       interpolate
+         for  (int i=0; i<NProf; i++)
+         {
+            mean_inter[i] = prof_init[i]->Data      [bin_index_left]*(real)(1.-x) + prof_init[i]->Data      [bin_index]*(real)x;
+            std_inter[i]  = prof_init[i]->Data_Sigma[bin_index_left]*(real)(1.-x) + prof_init[i]->Data_Sigma[bin_index]*(real)x;
+         }
+      }
+   }
+}
+
 
 //-------------------------------------------------------------------------------------------------------
-// Function    :  Aux_ComputeProfile
+// Function    :  Aux_ComputeCorrelation
 // Description :  Compute the average radial profile of target field(s)
 //
-// Note        :  1. Results will be stored in the input "Prof" object
-//                   --> Prof->Radius[]: Radial coordinate at each bin
-//                       Prof->Data  []: Profile data at each bin
-//                       Prof->Weight[]: Total weighting at each bin
-//                       Prof->NCell []: Number of cells at each bin
-//                       Prof->NBin    : Total number of bins
+// Note        :  1. Results will be stored in the input "Correlation" object
+//                   --> Correlation->Radius[]: Radial coordinate at each bin
+//                       Correlation->Data  []: Profile data at each bin
+//                       Correlation->Weight[]: Total weighting at each bin
+//                       Correlation->NCell []: Number of cells at each bin
+//                       Correlation->NBin    : Total number of bins
 //                   --> See the "Profile_t" structure defined in "include/Profile.h" for details
-//                   --> These arrays will be free'd when deleting "Prof"
+//                   --> These arrays will be free'd when deleting "Correlation"
 //                2. Maximum radius adopted when actually computing the profile may be larger than the input "r_max"
 //                   --> Because "r_max" in general does not coincide with the right edge of the maximum bin
 //                3. Support hybrid OpenMP/MPI parallelization
@@ -26,7 +87,8 @@ extern void SetTempIntPara( const int lv, const int Sg_Current, const double Pre
 //                5. Support computing multiple fields
 //                   --> The order of fields to be returned follows TVarBitIdx[]
 //
-// Parameter   :  Prof        : Profile_t object array to store the results
+// Parameter   :  Correlation : Profile_t object array to store the correlation function
+//                prof_init   : Profile_with_Sigma_t object array for storing the mean and standard deviation quantities for calculating correlation function
 //                Center      : Target center coordinates
 //                r_max_input : Maximum radius for computing the profile
 //                              --> See also "Note-2" above
@@ -41,12 +103,11 @@ extern void SetTempIntPara( const int lv, const int Sg_Current, const double Pre
 //                                        Data[empty_bin]=Weight[empty_bin]=NCell[empty_bin]=0
 //                TVarBitIdx  : Bitwise indices of target variables for computing the profiles
 //                              --> Supported indices (defined in Macro.h):
-//                                     HYDRO : _DENS, _MOMX, _MOMY, _MOMZ, _ENGY, _VELR, _PRES, _EINT_DER
 //                                             [, _ENPY, _EINT, _POTE]
 //                                     ELBDM : _DENS, _REAL, _IMAG [, _POTE]
 //                              --> For a passive scalar with an integer field index FieldIdx returned by AddField(),
 //                                  one can convert it to a bitwise field index by BIDX(FieldIdx)
-//                NProf       : Number of Profile_t objects in Prof
+//                NProf       : Number of Profile_t objects in Correlation
 //                Min/MaxLv   : Consider patches on levels from MinLv to MaxLv
 //                PatchType   : Only consider patches of the specified type
 //                              --> Supported types: PATCH_LEAF, PATCH_NONLEAF, PATCH_BOTH, PATCH_LEAF_PLUS_MAXNONLEAF
@@ -68,10 +129,10 @@ extern void SetTempIntPara( const int lv, const int Sg_Current, const double Pre
 //                const PatchType_t PatchType      = PATCH_LEAF_PLUS_MAXNONLEAF;
 //                const double      PrepTime       = -1.0;
 //
-//                Profile_t Prof_Dens, Prof_Pres;
-//                Profile_t *Prof[] = { &Prof_Dens, &Prof_Pres };
+//                Profile_t Correlation_Dens, Correlation_Pres;
+//                Profile_t *Correlation[] = { &Correlation_Dens, &Correlation_Pres };
 //
-//                Aux_ComputeProfile( Prof, Center, MaxRadius, MinBinSize, LogBin, LogBinRatio, RemoveEmptyBin,
+//                Aux_ComputeProfile( Correlation, Center, MaxRadius, MinBinSize, LogBin, LogBinRatio, RemoveEmptyBin,
 //                                    TVar, NProf, MinLv, MaxLv, PatchType, PrepTime );
 //
 //                if ( MPI_Rank == 0 )
@@ -79,22 +140,23 @@ extern void SetTempIntPara( const int lv, const int Sg_Current, const double Pre
 //                   for (int p=0; p<NProf; p++)
 //                   {
 //                      char Filename[MAX_STRING];
-//                      sprintf( Filename, "Profile%d.txt", p );
+//                      sprintf( Filename, "Correlation_function%d.txt", p );
 //                      FILE *File = fopen( Filename, "w" );
 //                      fprintf( File, "#%19s  %21s  %21s  %10s\n", "Radius", "Data", "Weight", "Cells" );
-//                      for (int b=0; b<Prof[p]->NBin; b++)
+//                      for (int b=0; b<Correlation[p]->NBin; b++)
 //                         fprintf( File, "%20.14e  %21.14e  %21.14e  %10ld\n",
-//                                  Prof[p]->Radius[b], Prof[p]->Data[b], Prof[p]->Weight[b], Prof[p]->NCell[b] );
+//                                  Correlation[p]->Radius[b], Correlation[p]->Data[b], Correlation[p]->Weight[b], Correlation[p]->NCell[b] );
 //                      fclose( File );
 //                   }
 //                }
 //
-// Return      :  Prof
+// Return      :  Correlation
 //-------------------------------------------------------------------------------------------------------
-void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double r_max_input, const double dr_min,
-                         const bool LogBin, const double LogBinRatio, const bool RemoveEmpty, const long TVarBitIdx[],
-                         const int NProf, const int MinLv, const int MaxLv, const PatchType_t PatchType,
-                         const double PrepTime )
+//void Aux_ComputeCorrelation( Profile_t *Correlation[], FieldIdx_t *Passive_idx[],  const Profile_t *prof_init[], const double Center[], 
+void Aux_ComputeCorrelation( Profile_t *Correlation[], const Profile_with_Sigma_t *prof_init[], const double Center[], 
+                             const double r_max_input, const double dr_min, const bool LogBin, const double LogBinRatio,
+                             const bool RemoveEmpty, const long TVarBitIdx[], const int NProf, const int MinLv, const int MaxLv, 
+                             const PatchType_t PatchType, const double PrepTime, const double dr_min_prof)
 {
 
 // check
@@ -116,6 +178,9 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
 
    if ( MinLv > MaxLv )
       Aux_Error( ERROR_INFO, "MinLv (%d) > MaxLv (%d) !!\n", MinLv, MaxLv );
+
+   if ( NProf != NCOMP_PASSIVE )
+      Aux_Error( ERROR_INFO, "NProf (%d) != NCOMP_PASSIVE (%d) !!\n", NProf, NCOMP_PASSIVE );
 #  endif
 
 
@@ -147,34 +212,34 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
 //    get the total number of radial bins and the corresponding maximum radius
       if ( LogBin )
       {
-         Prof[p]->NBin      = int( log(r_max_input/dr_min)/log(LogBinRatio) ) + 2;
-         Prof[p]->MaxRadius = dr_min*pow( LogBinRatio, Prof[p]->NBin-1 );
+         Correlation[p]->NBin      = int( log(r_max_input/dr_min)/log(LogBinRatio) ) + 2;
+         Correlation[p]->MaxRadius = dr_min*pow( LogBinRatio, Correlation[p]->NBin-1 );
       }
 
       else // linear bin
       {
-         Prof[p]->NBin      = (int)ceil( r_max_input / dr_min );
-         Prof[p]->MaxRadius = dr_min*Prof[p]->NBin;
+         Correlation[p]->NBin      = (int)ceil( r_max_input / dr_min );
+         Correlation[p]->MaxRadius = dr_min*Correlation[p]->NBin;
       }
 
 
 //    record profile parameters
-      for (int d=0; d<3; d++)    Prof[p]->Center[d] = Center[d];
+      for (int d=0; d<3; d++)    Correlation[p]->Center[d] = Center[d];
 
-      Prof[p]->LogBin = LogBin;
+      Correlation[p]->LogBin = LogBin;
 
-      if ( LogBin )  Prof[p]->LogBinRatio = LogBinRatio;
+      if ( LogBin )  Correlation[p]->LogBinRatio = LogBinRatio;
 
 
-//    allocate all member arrays of Prof
-      Prof[p]->AllocateMemory();
+//    allocate all member arrays of Correlation
+      Correlation[p]->AllocateMemory();
 
 
 //    record radial coordinates
       if ( LogBin )
-         for (int b=0; b<Prof[0]->NBin; b++)    Prof[p]->Radius[b] = dr_min*pow( LogBinRatio, b-0.5 );
+         for (int b=0; b<Correlation[0]->NBin; b++)    Correlation[p]->Radius[b] = dr_min*pow( LogBinRatio, b-0.5 );
       else
-         for (int b=0; b<Prof[0]->NBin; b++)    Prof[p]->Radius[b] = (b+0.5)*dr_min;
+         for (int b=0; b<Correlation[0]->NBin; b++)    Correlation[p]->Radius[b] = (b+0.5)*dr_min;
 
    } // for (int p=0; p<NProf; p++)
 
@@ -189,13 +254,13 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
    double ***OMP_Data=NULL, ***OMP_Weight=NULL;
    long   ***OMP_NCell=NULL;
 
-   Aux_AllocateArray3D( OMP_Data,   NProf, NT, Prof[0]->NBin );
-   Aux_AllocateArray3D( OMP_Weight, NProf, NT, Prof[0]->NBin );
-   Aux_AllocateArray3D( OMP_NCell,  NProf, NT, Prof[0]->NBin );
+   Aux_AllocateArray3D( OMP_Data,   NProf, NT, Correlation[0]->NBin );
+   Aux_AllocateArray3D( OMP_Weight, NProf, NT, Correlation[0]->NBin );
+   Aux_AllocateArray3D( OMP_NCell,  NProf, NT, Correlation[0]->NBin );
 
 
 // collect profile data in this rank
-   const double r_max2      = SQR( Prof[0]->MaxRadius );
+   const double r_max2      = SQR( Correlation[0]->MaxRadius );
    const double HalfBox[3]  = { 0.5*amr->BoxSize[0], 0.5*amr->BoxSize[1], 0.5*amr->BoxSize[2] };
    const bool   Periodic[3] = { OPT__BC_FLU[0] == BC_FLU_PERIODIC,
                                 OPT__BC_FLU[2] == BC_FLU_PERIODIC,
@@ -211,7 +276,7 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
 
 //    initialize arrays
       for (int p=0; p<NProf; p++)
-      for (int b=0; b<Prof[0]->NBin; b++)
+      for (int b=0; b<Correlation[0]->NBin; b++)
       {
          OMP_Data  [p][TID][b] = 0.0;
          OMP_Weight[p][TID][b] = 0.0;
@@ -219,10 +284,8 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
       }
 
 //    allocate passive scalar arrays
-#     if ( MODEL == HYDRO )
       real *Passive      = new real [NCOMP_PASSIVE];
-      real *Passive_IntT = new real [NCOMP_PASSIVE];
-#     endif
+//      real *Passive_IntT = new real [NCOMP_PASSIVE];
 
 //    loop over all target levels
       for (int lv=MinLv; lv<=MaxLv; lv++)
@@ -329,24 +392,26 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
                   const int    bin = ( LogBin ) ? (  (r<dr_min) ? 0 : int( log(r/dr_min)/log(LogBinRatio) ) + 1  )
                                                 : int( r/dr_min );
 //                prevent from round-off errors
-                  if ( bin >= Prof[0]->NBin )   continue;
+                  if ( bin >= Correlation[0]->NBin )   continue;
 
 //                check
 #                 ifdef GAMER_DEBUG
                   if ( bin < 0 )    Aux_Error( ERROR_INFO, "bin (%d) < 0 !!\n", bin );
 #                 endif
 
+//                interpolate to get mean value at r
+                  real mean_value[NProf], std_value[NProf];
+//                find corresponding bin index in density profile, which always uses linear bin
+                  const int    bin_prof = int (r/dr_min_prof); 
+                  InterpolateDensity( mean_value, std_value, prof_init, NProf, bin_prof, r );
+
 //                prepare passive scalars (for better sustainability, always do it even when unnecessary)
-#                 if ( MODEL == HYDRO )
                   for (int v_out=0; v_out<NCOMP_PASSIVE; v_out++)
                   {
                      const int v_in = v_out + NCOMP_FLUID;
 
                      Passive     [v_out] = FluidPtr     [v_in][k][j][i];
-                     if ( FluIntTime )
-                     Passive_IntT[v_out] = FluidPtr_IntT[v_in][k][j][i];
                   }
-#                 endif
 
                   for (int p=0; p<NProf; p++)
                   {
@@ -354,11 +419,21 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
                      if ( TFluIntIdx[p] != IdxUndef )
                      {
                         const real Weight = dv;
+                        real delta  = ( FluIntTime )
+                                          ? ( FluWeighting     *FluidPtr     [ TFluIntIdx[p] ][k][j][i]
+                                            + FluWeighting_IntT*FluidPtr_IntT[ TFluIntIdx[p] ][k][j][i] )
+                                          :                     FluidPtr     [ TFluIntIdx[p] ][k][j][i]  ;
+//                        real delta_passive = amr->patch[FluSg][lv][PID]->fluid[ *(Passive_idx[p]) ][k][j][i];
+                        real delta_passive = Passive[p];
+                        delta         -= mean_value[p];
+                        delta_passive -= mean_value[p];
 
-                        OMP_Data  [p][TID][bin] += ( FluIntTime )
-                                                 ? ( FluWeighting     *FluidPtr     [ TFluIntIdx[p] ][k][j][i]
-                                                   + FluWeighting_IntT*FluidPtr_IntT[ TFluIntIdx[p] ][k][j][i] )*Weight
-                                                 :                     FluidPtr     [ TFluIntIdx[p] ][k][j][i]  *Weight;
+                        if (std_value[p]>(real)0.)
+                            OMP_Data  [p][TID][bin] += delta*delta_passive/std_value[p]/std_value[p]*Weight;
+                        else
+                            OMP_Data  [p][TID][bin] += delta*delta_passive/mean_value[p]/mean_value[p]*Weight;
+                            
+//                        OMP_Data  [p][TID][bin] += delta*Weight;
                         OMP_Weight[p][TID][bin] += Weight;
                         OMP_NCell [p][TID][bin] ++;
                      }
@@ -376,17 +451,29 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
                                                 ? ( FluWeighting     *FluidPtr     [DENS][k][j][i]
                                                   + FluWeighting_IntT*FluidPtr_IntT[DENS][k][j][i] )*dv
                                                 :                     FluidPtr     [DENS][k][j][i]  *dv;
+                              
 
-                              OMP_Data  [p][TID][bin] += ( PotIntTime )
-                                                       ? ( PotWeighting     *PotPtr     [k][j][i]
-                                                         + PotWeighting_IntT*PotPtr_IntT[k][j][i] )*Weight
-                                                       :                     PotPtr     [k][j][i]  *Weight;
+                              real delta  = ( PotIntTime )
+                                                ? ( PotWeighting     *PotPtr     [k][j][i]
+                                                  + PotWeighting_IntT*PotPtr_IntT[k][j][i] )
+                                                       :                     PotPtr     [k][j][i]  ;
+//                              real delta_passive = amr->patch[0][lv][PID]->fluid[ *(Passive_idx[p]) ][k][j][i];
+                              real delta_passive = Passive[p];
+                              delta         -= mean_value[p];
+                              delta_passive -= mean_value[p];
+
+                              if (std_value[p]>(real)0.)
+                                  OMP_Data  [p][TID][bin] += delta*delta_passive/std_value[p]/std_value[p]*Weight;
+                              else
+                                  OMP_Data  [p][TID][bin] += delta*delta_passive/mean_value[p]/mean_value[p]*Weight;
+
                               OMP_Weight[p][TID][bin] += Weight;
                               OMP_NCell [p][TID][bin] ++;
                            }
                            break;
 #                          endif
 
+/*
 //                         derived fields
 #                          if ( MODEL == HYDRO )
                            case _VELR:
@@ -523,6 +610,7 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
                            }
                            break;
 #                          endif // HYDRO
+*/
 
                            default:
                               Aux_Error( ERROR_INFO, "unsupported field (%ld) !!\n", TVarBitIdx[p] );
@@ -535,10 +623,7 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
          } // for (int PID=0; PID<amr->NPatchComma[lv][1]; PID++)
       } // for (int lv=lv_min; lv<=lv_max; lv++)
 
-#     if ( MODEL == HYDRO )
       delete [] Passive;         Passive      = NULL;
-      delete [] Passive_IntT;    Passive_IntT = NULL;
-#     endif
 
    } // OpenMP parallel region
 
@@ -546,19 +631,19 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
 // sum over all OpenMP threads
    for (int p=0; p<NProf; p++)
    {
-      for (int b=0; b<Prof[0]->NBin; b++)
+      for (int b=0; b<Correlation[0]->NBin; b++)
       {
-         Prof[p]->Data  [b]  = OMP_Data  [p][0][b];
-         Prof[p]->Weight[b]  = OMP_Weight[p][0][b];
-         Prof[p]->NCell [b]  = OMP_NCell [p][0][b];
+         Correlation[p]->Data  [b]  = OMP_Data  [p][0][b];
+         Correlation[p]->Weight[b]  = OMP_Weight[p][0][b];
+         Correlation[p]->NCell [b]  = OMP_NCell [p][0][b];
       }
 
       for (int t=1; t<NT; t++)
-      for (int b=0; b<Prof[0]->NBin; b++)
+      for (int b=0; b<Correlation[0]->NBin; b++)
       {
-         Prof[p]->Data  [b] += OMP_Data  [p][t][b];
-         Prof[p]->Weight[b] += OMP_Weight[p][t][b];
-         Prof[p]->NCell [b] += OMP_NCell [p][t][b];
+         Correlation[p]->Data  [b] += OMP_Data  [p][t][b];
+         Correlation[p]->Weight[b] += OMP_Weight[p][t][b];
+         Correlation[p]->NCell [b] += OMP_NCell [p][t][b];
       }
    }
 
@@ -574,16 +659,16 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
    {
       if ( MPI_Rank == 0 )
       {
-         MPI_Reduce( MPI_IN_PLACE,    Prof[p]->Data,   Prof[p]->NBin, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD );
-         MPI_Reduce( MPI_IN_PLACE,    Prof[p]->Weight, Prof[p]->NBin, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD );
-         MPI_Reduce( MPI_IN_PLACE,    Prof[p]->NCell , Prof[p]->NBin, MPI_LONG,   MPI_SUM, 0, MPI_COMM_WORLD );
+         MPI_Reduce( MPI_IN_PLACE,    Correlation[p]->Data,   Correlation[p]->NBin, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD );
+         MPI_Reduce( MPI_IN_PLACE,    Correlation[p]->Weight, Correlation[p]->NBin, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD );
+         MPI_Reduce( MPI_IN_PLACE,    Correlation[p]->NCell , Correlation[p]->NBin, MPI_LONG,   MPI_SUM, 0, MPI_COMM_WORLD );
       }
 
       else
       {
-         MPI_Reduce( Prof[p]->Data,   NULL,            Prof[p]->NBin, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD );
-         MPI_Reduce( Prof[p]->Weight, NULL,            Prof[p]->NBin, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD );
-         MPI_Reduce( Prof[p]->NCell,  NULL,            Prof[p]->NBin, MPI_LONG,   MPI_SUM, 0, MPI_COMM_WORLD );
+         MPI_Reduce( Correlation[p]->Data,   NULL,            Correlation[p]->NBin, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD );
+         MPI_Reduce( Correlation[p]->Weight, NULL,            Correlation[p]->NBin, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD );
+         MPI_Reduce( Correlation[p]->NCell,  NULL,            Correlation[p]->NBin, MPI_LONG,   MPI_SUM, 0, MPI_COMM_WORLD );
       }
    }
 #  endif
@@ -593,10 +678,10 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
    if ( MPI_Rank == 0 )
    {
       for (int p=0; p<NProf; p++)
-      for (int b=0; b<Prof[0]->NBin; b++)
+      for (int b=0; b<Correlation[0]->NBin; b++)
       {
 //       skip empty bins since both their data and weight are zero
-         if ( Prof[p]->NCell[b] > 0L )    Prof[p]->Data[b] /= Prof[p]->Weight[b];
+         if ( Correlation[p]->NCell[b] > 0L )    Correlation[p]->Data[b] /= Correlation[p]->Weight[b];
       }
    }
 
@@ -604,9 +689,9 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
 // broadcast data to all ranks
    for (int p=0; p<NProf; p++)
    {
-      MPI_Bcast( Prof[p]->Data,   Prof[p]->NBin, MPI_DOUBLE, 0, MPI_COMM_WORLD );
-      MPI_Bcast( Prof[p]->Weight, Prof[p]->NBin, MPI_DOUBLE, 0, MPI_COMM_WORLD );
-      MPI_Bcast( Prof[p]->NCell,  Prof[p]->NBin, MPI_LONG,   0, MPI_COMM_WORLD );
+      MPI_Bcast( Correlation[p]->Data,   Correlation[p]->NBin, MPI_DOUBLE, 0, MPI_COMM_WORLD );
+      MPI_Bcast( Correlation[p]->Weight, Correlation[p]->NBin, MPI_DOUBLE, 0, MPI_COMM_WORLD );
+      MPI_Bcast( Correlation[p]->NCell,  Correlation[p]->NBin, MPI_LONG,   0, MPI_COMM_WORLD );
    }
 
 
@@ -614,43 +699,43 @@ void Aux_ComputeProfile( Profile_t *Prof[], const double Center[], const double 
 // --> all ranks do the same work so that no data broadcast is required
    if ( RemoveEmpty )
    {
-      for (int b=0; b<Prof[0]->NBin; b++)
+      for (int b=0; b<Correlation[0]->NBin; b++)
       {
-         if ( Prof[0]->NCell[b] != 0L )   continue;
+         if ( Correlation[0]->NCell[b] != 0L )   continue;
 
 //       remove consecutive empty bins at the same time for better performance
          int b_up;
-         for (b_up=b+1; b_up<Prof[0]->NBin; b_up++)
-            if ( Prof[0]->NCell[b_up] != 0L )   break;
+         for (b_up=b+1; b_up<Correlation[0]->NBin; b_up++)
+            if ( Correlation[0]->NCell[b_up] != 0L )   break;
 
          const int stride = b_up - b;
 
-         for (b_up=b+stride; b_up<Prof[0]->NBin; b_up++)
+         for (b_up=b+stride; b_up<Correlation[0]->NBin; b_up++)
          {
             const int b_up_ms = b_up - stride;
 
             for (int p=0; p<NProf; p++)
             {
-               Prof[p]->Radius[b_up_ms] = Prof[p]->Radius[b_up];
-               Prof[p]->Data  [b_up_ms] = Prof[p]->Data  [b_up];
-               Prof[p]->Weight[b_up_ms] = Prof[p]->Weight[b_up];
-               Prof[p]->NCell [b_up_ms] = Prof[p]->NCell [b_up];
+               Correlation[p]->Radius[b_up_ms] = Correlation[p]->Radius[b_up];
+               Correlation[p]->Data  [b_up_ms] = Correlation[p]->Data  [b_up];
+               Correlation[p]->Weight[b_up_ms] = Correlation[p]->Weight[b_up];
+               Correlation[p]->NCell [b_up_ms] = Correlation[p]->NCell [b_up];
             }
          }
 
 //       reset the total number of bins
          for (int p=0; p<NProf; p++)
-            Prof[p]->NBin -= stride;
-      } // for (int b=0; b<Prof->NBin; b++)
+            Correlation[p]->NBin -= stride;
+      } // for (int b=0; b<Correlation->NBin; b++)
 
 //    update the maximum radius since the last bin may have been removed
       for (int p=0; p<NProf; p++)
       {
-         const int LastBin = Prof[p]->NBin-1;
+         const int LastBin = Correlation[p]->NBin-1;
 
-         Prof[p]->MaxRadius = ( LogBin ) ? Prof[p]->Radius[LastBin]*sqrt( LogBinRatio )
-                                         : Prof[p]->Radius[LastBin] + 0.5*dr_min;
+         Correlation[p]->MaxRadius = ( LogBin ) ? Correlation[p]->Radius[LastBin]*sqrt( LogBinRatio )
+                                         : Correlation[p]->Radius[LastBin] + 0.5*dr_min;
       }
    } // if ( RemoveEmpty )
 
-} // FUNCTION : Aux_ComputeProfile
+} // FUNCTION : Aux_ComputeCorrelation
