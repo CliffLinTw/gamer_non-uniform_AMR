@@ -220,12 +220,12 @@ void SetParameter()
       if (ComputeCorrelation)
       {
          Aux_Message( stdout, "  histogram bin size  (correlation)           = %13.6e\n", dr_min_corr            );
-         Aux_Message( stdout, "  log gin ratio       (correlation)           = %13.6e\n", LogBinRatio_corr       );
+         Aux_Message( stdout, "  log bin ratio       (correlation)           = %13.6e\n", LogBinRatio_corr       );
          Aux_Message( stdout, "  radius maximum      (correlation)           = %13.6e\n", RadiusMax_corr         );
          Aux_Message( stdout, "  use logarithmic bin (correlation)           = %d\n"    , LogBin_corr            );
          Aux_Message( stdout, "  remove empty bin    (correlation)           = %d\n"    , RemoveEmpty_corr       );
          Aux_Message( stdout, "  histogram bin size  (profile)               = %13.6e\n", dr_min_prof            );
-         Aux_Message( stdout, "  log gin ratio       (profile, no effect)    = %13.6e\n", LogBinRatio_prof       );
+         Aux_Message( stdout, "  log bin ratio       (profile, no effect)    = %13.6e\n", LogBinRatio_prof       );
          Aux_Message( stdout, "  radius maximum      (profile, assigned)     = %13.6e\n", RadiusMax_prof         );
          Aux_Message( stdout, "  use logarithmic bin (profile, assigned)     = %d\n"    , LogBin_prof            );
          Aux_Message( stdout, "  remove empty bin    (profile, assigned)     = %d\n"    , RemoveEmpty_prof       );
@@ -413,7 +413,7 @@ void Init_User_ELBDM_Halo_Stability_Test(void)
 
        bool record_flag = false;
        Record_CenterOfMass( record_flag );
-       if ( MPI_Rank == 0 )  Aux_Message( stdout, "Center of passive field is ( %13.6e,%13.6e,%13.6e )\n", Center[0], Center[1], Center[2] );
+       if ( MPI_Rank == 0 )  Aux_Message( stdout, "Center of passive field is ( %14.11e,%14.11e,%14.11e )\n", Center[0], Center[1], Center[2] );
        // commpute density profile for passive field;
        if ( MPI_Rank == 0 )  Aux_Message( stdout, "Calculate density profile for passive field:\n");
 
