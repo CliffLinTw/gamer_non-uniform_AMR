@@ -169,7 +169,12 @@ void Init_ByFile()
 
    ExpectSize = 0;
    for (int t=0; t<OPT__UM_IC_NLEVEL; t++)
-      ExpectSize += long(OPT__UM_IC_NVAR)*UM_Size3D[t][0]*UM_Size3D[t][1]*UM_Size3D[t][2]*sizeof(real);
+   {
+      if ( OPT__INIT_DOUBLE && (OPT__INIT==3) )  // Only valid for UM_IC initialization 
+          ExpectSize += long(OPT__UM_IC_NVAR)*UM_Size3D[t][0]*UM_Size3D[t][1]*UM_Size3D[t][2]*sizeof(double);
+      else
+          ExpectSize += long(OPT__UM_IC_NVAR)*UM_Size3D[t][0]*UM_Size3D[t][1]*UM_Size3D[t][2]*sizeof(float);
+   }
 
    if ( FileSize != ExpectSize )
       Aux_Error( ERROR_INFO, "size of the file <%s> (%ld) != expected (%ld) !!\n", UM_Filename, FileSize, ExpectSize );
@@ -465,6 +470,24 @@ void Init_ByFile_AssignData( const char UM_Filename[], const int UM_lv, const in
 // check
    if ( Init_ByFile_User_Ptr == NULL )  Aux_Error( ERROR_INFO, "Init_ByFile_User_Ptr == NULL !!\n" );
 
+// set data_size
+   size_t data_size;
+   float  *sPG_Data;
+   double *dPG_Data;
+   bool   use_double;
+
+   if ( OPT__INIT_DOUBLE && (OPT__INIT==3) )  // Only valid for UM_IC initialization
+   {
+       use_double = true;
+       data_size  = sizeof(double);
+       dPG_Data   = new double [ CUBE(PS2)*UM_NVar ];
+   }
+   else
+   {
+       use_double = false;
+       data_size = sizeof(float);
+       sPG_Data  = new float  [ CUBE(PS2)*UM_NVar ];
+   }
 
    const int    dlv         = UM_lv - UM_lv0;
    const long   UM_Size1v   = UM_Size3D[dlv][0]*UM_Size3D[dlv][1]*UM_Size3D[dlv][2];
@@ -476,13 +499,12 @@ void Init_ByFile_AssignData( const char UM_Filename[], const int UM_lv, const in
    real   fluid_in[UM_NVar], fluid_out[NCOMP_TOTAL];
    double x, y, z;
 
-   real *PG_Data = new real [ CUBE(PS2)*UM_NVar ];
 
 
 // calculate the file offset of the target level
    Offset_lv = 0;
    for (int t=0; t<dlv; t++)
-      Offset_lv += long(UM_NVar)*UM_Size3D[t][0]*UM_Size3D[t][1]*UM_Size3D[t][2]*sizeof(real);
+      Offset_lv += long(UM_NVar)*UM_Size3D[t][0]*UM_Size3D[t][1]*UM_Size3D[t][2]*data_size;
 
 
 // load data with UM_LoadNRank ranks at a time
@@ -512,7 +534,7 @@ void Init_ByFile_AssignData( const char UM_Filename[], const int UM_lv, const in
 
             Offset_File0  = IDX321( Offset3D_File0[0], Offset3D_File0[1], Offset3D_File0[2],
                                     UM_Size3D[dlv][0], UM_Size3D[dlv][1] );
-            Offset_File0 *= (long)NVarPerLoad*sizeof(real);
+            Offset_File0 *= (long)NVarPerLoad*data_size;
 
 
 //          load data from the disk (one row at a time)
@@ -524,11 +546,13 @@ void Init_ByFile_AssignData( const char UM_Filename[], const int UM_lv, const in
                for (int j=0; j<PS2; j++)
                {
                   Offset_File = Offset_lv + Offset_File0
-                                + (long)NVarPerLoad*sizeof(real)*( ((long)k*UM_Size3D[dlv][1] + j)*UM_Size3D[dlv][0] )
-                                + v*UM_Size1v*sizeof(real);
+                                + (long)NVarPerLoad*data_size*( ((long)k*UM_Size3D[dlv][1] + j)*UM_Size3D[dlv][0] )
+                                + v*UM_Size1v*data_size;
 
                   fseek( File, Offset_File, SEEK_SET );
-                  fread( PG_Data+Offset_PG, sizeof(real), NVarPerLoad*PS2, File );
+                  
+                  if ( use_double )   fread( dPG_Data+Offset_PG, data_size, NVarPerLoad*PS2, File );
+                  else                fread( sPG_Data+Offset_PG, data_size, NVarPerLoad*PS2, File );
 
 //                verify that the file size is not exceeded
                   if ( feof(File) )   Aux_Error( ERROR_INFO, "reaching the end of the file \"%s\" !!\n", UM_Filename );
@@ -552,13 +576,32 @@ void Init_ByFile_AssignData( const char UM_Filename[], const int UM_lv, const in
 
                   Offset_PG = (long)NVarPerLoad*IDX321( i+Disp_i, j+Disp_j, k+Disp_k, PS2, PS2 );
 
-                  if ( UM_Format == UM_IC_FORMAT_ZYXV )
-                     memcpy( fluid_in, PG_Data+Offset_PG, UM_NVar*sizeof(real) );
+                  if ( UM_Format==UM_IC_FORMAT_ZYXV )
+                  {
+                     if ( sizeof(real)==data_size  )
+                     {
+                        if ( use_double ) memcpy( fluid_in, dPG_Data+Offset_PG, UM_NVar*data_size );
+                        else              memcpy( fluid_in, sPG_Data+Offset_PG, UM_NVar*data_size );
+                     }
+                     else
+                     {
+                        if ( use_double ) { for (int v=0; v<UM_NVar; v++) fluid_in[v] = (real)(*( dPG_Data + Offset_PG + v )); }
+                        else              { for (int v=0; v<UM_NVar; v++) fluid_in[v] = (real)(*( sPG_Data + Offset_PG + v )); }
+                     }
+                  }
 
                   else
                   {
-                     for (int v=0; v<UM_NVar; v++)
-                        fluid_in[v] = *( PG_Data + Offset_PG + v*CUBE(PS2) );
+                     if ( sizeof(real)==data_size )
+                     {
+                        if ( use_double ) { for (int v=0; v<UM_NVar; v++) fluid_in[v] = *( dPG_Data + Offset_PG + v*CUBE(PS2) ); }
+                        else              { for (int v=0; v<UM_NVar; v++) fluid_in[v] = *( sPG_Data + Offset_PG + v*CUBE(PS2) ); }
+                     }
+                     else
+                     {
+                        if ( use_double ) { for (int v=0; v<UM_NVar; v++) fluid_in[v] = (real)(*( dPG_Data + Offset_PG + v*CUBE(PS2) )); }
+                        else              { for (int v=0; v<UM_NVar; v++) fluid_in[v] = (real)(*( sPG_Data + Offset_PG + v*CUBE(PS2) )); }
+                     }
                   }
 
                   Init_ByFile_User_Ptr( fluid_out, fluid_in, UM_NVar, x, y, z, Time[UM_lv], UM_lv, NULL );
@@ -577,7 +620,8 @@ void Init_ByFile_AssignData( const char UM_Filename[], const int UM_lv, const in
       MPI_Barrier( MPI_COMM_WORLD );
    } // for (int TRank0=0; TRank0<MPI_NRank; TRank0+=UM_LoadNRank)
 
-   delete [] PG_Data;
+   if ( use_double )  delete [] dPG_Data;
+   else               delete [] sPG_Data;
 
 
    if ( MPI_Rank == 0 )    Aux_Message( stdout, "      Loading data from the input file on level %d ... done\n", UM_lv );

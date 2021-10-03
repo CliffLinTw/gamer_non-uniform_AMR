@@ -24,9 +24,9 @@ void InterpolateDensity(real *mean_inter, real *std_inter, const Profile_with_Si
       x                   = (r - prof_init[0]->Radius[bin_index]) / delta_r;
 //    check x 
       if (x<(real)(0.0))
-         Aux_Error( ERROR_INFO, "x (%14.7e) < 0.0 !!\n", x );
+         Aux_Error( ERROR_INFO, "x (%14.7e) < 0.0 !! index = %d ; r = %14.7e ; left-hand point = %14.7e ; right-hand point = %14.7e \n", x , bin_index, r, prof_init[0]->Radius[bin_index], prof_init[0]->Radius[bin_index_right] );
       else if (x>(real)(1.0))
-         Aux_Error( ERROR_INFO, "x (%14.7e) > 1.0 !!\n", x );
+         Aux_Error( ERROR_INFO, "x (%14.7e) > 1.0 !! index = %d ; r = %14.7e ; left-hand point = %14.7e ; right-hand point = %14.7e \n", x , bin_index, r, prof_init[0]->Radius[bin_index], prof_init[0]->Radius[bin_index_right] );
 //    interpolate
       for  (int i=0; i<NProf; i++)
       {
@@ -52,9 +52,9 @@ void InterpolateDensity(real *mean_inter, real *std_inter, const Profile_with_Si
          x                   = (r - prof_init[0]->Radius[bin_index_left]) / delta_r;
 //       check x 
          if (x<(real)(0.0))
-            Aux_Error( ERROR_INFO, "x (%14.7e) < 0.0 !!\n", x );
+            Aux_Error( ERROR_INFO, "x (%14.7e) < 0.0 !! index = %d ; r = %14.7e ; left-hand point = %14.7e ; right-hand point = %14.7e \n", x , bin_index, r, prof_init[0]->Radius[bin_index_left], prof_init[0]->Radius[bin_index] );
          else if (x>(real)(1.0))
-            Aux_Error( ERROR_INFO, "x (%14.7e) > 1.0 !!\n", x );
+            Aux_Error( ERROR_INFO, "x (%14.7e) > 1.0 !! index = %d ; r = %14.7e ; left-hand point = %14.7e ; right-hand point = %14.7e \n", x , bin_index, r, prof_init[0]->Radius[bin_index_left], prof_init[0]->Radius[bin_index] );
 //       interpolate
          for  (int i=0; i<NProf; i++)
          {
@@ -212,8 +212,9 @@ void Aux_ComputeCorrelation( Profile_t *Correlation[], const Profile_with_Sigma_
 //    get the total number of radial bins and the corresponding maximum radius
       if ( LogBin )
       {
-         Correlation[p]->NBin      = int( log(r_max_input/dr_min)/log(LogBinRatio) ) + 2;
-         Correlation[p]->MaxRadius = dr_min*pow( LogBinRatio, Correlation[p]->NBin-1 );
+//         Correlation[p]->NBin      = int( log(r_max_input/dr_min)/log(LogBinRatio) ) + 2;
+         Correlation[p]->NBin      = int( log(r_max_input/dr_min)/log(LogBinRatio) ) + 1;   
+         Correlation[p]->MaxRadius = dr_min*pow( LogBinRatio, Correlation[p]->NBin-1 );  // MaxRadius will smaller than r_max_input if Correlation[p]->NBin      = int( log(r_max_input/dr_min)/log(LogBinRatio) ) + 1; will be larger than r_max_input if Correlation[p]->NBin      = int( log(r_max_input/dr_min)/log(LogBinRatio) ) + 2;
       }
 
       else // linear bin
@@ -221,6 +222,8 @@ void Aux_ComputeCorrelation( Profile_t *Correlation[], const Profile_with_Sigma_
          Correlation[p]->NBin      = (int)ceil( r_max_input / dr_min );
          Correlation[p]->MaxRadius = dr_min*Correlation[p]->NBin;
       }
+
+      if ( Correlation[p]->MaxRadius > prof_init[p]->MaxRadius )  Aux_Error( ERROR_INFO, "Correlation[%d]->MaxRadius ( %14.7e ) > Profile[%d]->MaxRadius ( %14.7e ) !!\n", p, Correlation[p]->MaxRadius, p, prof_init[p]->MaxRadius );
 
 
 //    record profile parameters
@@ -265,6 +268,7 @@ void Aux_ComputeCorrelation( Profile_t *Correlation[], const Profile_with_Sigma_
    const bool   Periodic[3] = { OPT__BC_FLU[0] == BC_FLU_PERIODIC,
                                 OPT__BC_FLU[2] == BC_FLU_PERIODIC,
                                 OPT__BC_FLU[4] == BC_FLU_PERIODIC };
+//   if ( MPI_Rank==0 )  printf(" r_max2 = %14.7e \n", r_max2);
 
 #  pragma omp parallel
    {
