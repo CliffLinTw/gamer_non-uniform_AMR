@@ -15,7 +15,8 @@
 
 # executable
 #######################################################################################################
-EXECUTABLE := gamer_gnu
+EXECUTABLE := gamer_intel-oneapi
+#EXECUTABLE := gamer_gnu
 
 
 
@@ -225,14 +226,14 @@ SIMU_OPTION += -DRANDOM_NUMBER=RNG_GNU_EXT
 # intel
 # -------------------------------------------------------------------------------
 ## CXX         = icpc                                      # serial compiler
-#CXX         = $(MPI_PATH)/bin/mpicxx                    # MPI compiler
+CXX         = $(MPI_PATH)/bin/mpicxx                    # MPI compiler
 ##CXX         = CC                                        # cray wrapper script
-# CXXFLAG     = -g -O3                                    # general flags
+ CXXFLAG     = -g -O3                                    # general flags
 ##CXXFLAG     = -g -O3 -std=c++11 #-gxx-name=YOUR_G++
 ##CXXFLAG     = -g -fast
 # CXXFLAG    += -w1                                       # warning flags
-# OPENMPFLAG  = -fopenmp                                  # openmp flag
-# LIB         = -limf                                     # libraries and linker flags
+ OPENMPFLAG  = -fopenmp                                  # openmp flag
+ LIB         = -limf                                     # libraries and linker flags
 ##
 ## for debug only
 #ifeq "$(filter -DGAMER_DEBUG, $(SIMU_OPTION))" "-DGAMER_DEBUG"
@@ -249,17 +250,17 @@ SIMU_OPTION += -DRANDOM_NUMBER=RNG_GNU_EXT
 # gnu
 # -------------------------------------------------------------------------------
 # CXX         = g++                                       # serial compiler
-CXX         = $(MPI_PATH)/bin/mpicxx                    # MPI compiler
+#CXX         = $(MPI_PATH)/bin/mpicxx                    # MPI compiler
 #CXX         = CC                                        # cray wrapper script
- CXXFLAG     = -g -O3                                    # general flags
+# CXXFLAG     = -g -O3                                    # general flags
 #CXXFLAG     = -g -O3 -std=c++11
 #CXXFLAG     = -g -Ofast
 # CXXFLAG    += -Wall -Wextra                             # warning flags
 # CXXFLAG    += -Wno-unused-variable -Wno-unused-parameter \
 #               -Wno-maybe-uninitialized -Wno-unused-but-set-variable \
 #               -Wno-unused-result -Wno-unused-function
- OPENMPFLAG  = -fopenmp                                  # openmp flag
- LIB         =                                           # libraries and linker flags
+# OPENMPFLAG  = -fopenmp                                  # openmp flag
+# LIB         =                                           # libraries and linker flags
 
 ## for debug only
 #ifeq "$(filter -DGAMER_DEBUG, $(SIMU_OPTION))" "-DGAMER_DEBUG"
@@ -338,11 +339,11 @@ LIBYT_PATH   :=
 # NTU-eureka (default: openmpi-intel)
 CUDA_PATH    := /software/cuda/default
 ## intel
-#FFTW_PATH    := /software/fftw/2.1.5-intel-oneapi-openmpi-4.1.1-ucx_mt
-#MPI_PATH     := /software/openmpi/4.1.1-intel-oneapi-ucx_mt
+FFTW_PATH    := /software/fftw/default
+MPI_PATH     := /software/openmpi/default
 ## GNU
-FFTW_PATH    := /software/fftw/2.1.5-gnu-openmpi-4.1.1-ucx_mt
-MPI_PATH     := /software/openmpi/4.1.1-gnu-ucx_mt
+#FFTW_PATH    := /software/fftw/2.1.5-gnu-openmpi-4.1.1-ucx_mt
+#MPI_PATH     := /software/openmpi/4.1.1-gnu-ucx_mt
 HDF5_PATH    := /software/hdf5/default
 GRACKLE_PATH :=
 GSL_PATH     := /software/gsl/default
