@@ -337,8 +337,12 @@ LIBYT_PATH   :=
 
 # NTU-eureka (default: openmpi-intel)
 CUDA_PATH    := /software/cuda/default
+## INTEL
 FFTW_PATH    := /software/fftw/default
 MPI_PATH     := /software/openmpi/default
+## GNU
+#FFTW_PATH    := /software/fftw/2.1.5-gnu-openmpi-4.1.1-ucx_mt
+#MPI_PATH     := /software/openmpi/4.1.1-gnu-ucx_mt
 HDF5_PATH    := /software/hdf5/default
 GRACKLE_PATH :=
 GSL_PATH     := /software/gsl/default
@@ -567,7 +571,7 @@ CPU_FILE    += Par_Init_ByFunction.cpp  Par_Output_TextFile.cpp  Par_FindHomePat
                Par_PassParticle2Sibling.cpp  Par_CountParticleInDescendant.cpp  Par_Aux_GetConservedQuantity.cpp \
                Par_Aux_InitCheck.cpp  Par_Aux_Record_ParticleCount.cpp  Par_PassParticle2Son_MultiPatch.cpp \
                Par_Synchronize.cpp  Par_PredictPos.cpp  Par_Init_ByFile.cpp  Par_Init_Attribute.cpp \
-               Par_AddParticleAfterInit.cpp  Par_PassParticle2Son_SinglePatch.cpp
+               Par_AddParticleAfterInit.cpp  Par_PassParticle2Son_SinglePatch.cpp  Par_EquilibriumIC.cpp
 
 vpath %.cu     Particle/GPU
 vpath %.cpp    Particle/CPU  Particle
@@ -983,4 +987,3 @@ clean :
 	@rm -f $(OBJ_PATH)/*
 	@rm -f $(EXECUTABLE)
 	@rm -f ./*.linkinfo
-
