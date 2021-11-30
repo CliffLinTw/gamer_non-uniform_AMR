@@ -34,7 +34,7 @@ void Init_TestProb_ELBDM_IsolatedHalo();
 void Init_TestProb_ELBDM_GaussianWavePacket();
 void Init_TestProb_ELBDM_LSS();
 void Init_TestProb_ELBDM_Halo_Stability_Test();
-
+void Init_TestProb_ELBDM_LSSHalo();
 
 
 //-------------------------------------------------------------------------------------------------------
@@ -88,6 +88,7 @@ void Init_TestProb()
       case TESTPROB_ELBDM_GAUSSIAN_WAVE_PACKET :         Init_TestProb_ELBDM_GaussianWavePacket();          break;
       case TESTPROB_ELBDM_LSS :                          Init_TestProb_ELBDM_LSS();                         break;
       case TESTPROB_ELBDM_HALO_STABILITY_TEST :          Init_TestProb_ELBDM_Halo_Stability_Test();         break;
+      case TESTPROB_ELBDM_LSS_HALO :                     Init_TestProb_ELBDM_LSSHalo();                     break;
 
       default: Aux_Error( ERROR_INFO, "unsupported TESTPROB_ID (%d) !!\n", TESTPROB_ID );
    } // switch( TESTPROB_ID )

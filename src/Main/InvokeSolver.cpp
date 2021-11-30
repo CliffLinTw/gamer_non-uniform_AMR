@@ -7,6 +7,7 @@ static void Solver( const Solver_t TSolver, const int lv, const double TimeNew, 
 static void Closing_Step( const Solver_t TSolver, const int lv, const int SaveSg_Flu, const int SaveSg_Mag, const int SaveSg_Pot,
                           const int NPG, const int *PID0_List, const int ArrayID, const double dt );
 
+extern bool FixDM;
 extern Timer_t *Timer_Pre         [NLEVEL][NSOLVER];
 extern Timer_t *Timer_Sol         [NLEVEL][NSOLVER];
 extern Timer_t *Timer_Clo         [NLEVEL][NSOLVER];
@@ -439,7 +440,7 @@ void Preparation_Step( const Solver_t TSolver, const int lv, const double TimeNe
 void Solver( const Solver_t TSolver, const int lv, const double TimeNew, const double TimeOld,
              const int NPG, const int ArrayID, const double dt, const double Poi_Coeff )
 {
-
+   const double dt_fix = ( FixDM ) ? 0.0 : dt; 
    const double dh = amr->dh[lv];
 
 #  ifdef GRAVITY
@@ -533,7 +534,7 @@ void Solver( const Solver_t TSolver, const int lv, const double TimeNew, const d
                                  h_Mag_Array_F_In[ArrayID], h_Mag_Array_F_Out[ArrayID],
                                  h_DE_Array_F_Out[ArrayID], h_Flux_Array[ArrayID], h_Ele_Array[ArrayID],
                                  h_Corner_Array_F[ArrayID], h_Pot_Array_USG_F[ArrayID],
-                                 NPG, dt, dh, OPT__FIXUP_FLUX, OPT__FIXUP_ELECTRIC, Flu_XYZ, OPT__LR_LIMITER, MINMOD_COEFF,
+                                 NPG, dt_fix, dh, OPT__FIXUP_FLUX, OPT__FIXUP_ELECTRIC, Flu_XYZ, OPT__LR_LIMITER, MINMOD_COEFF,
                                  ELBDM_ETA, ELBDM_TAYLOR3_COEFF, ELBDM_TAYLOR3_AUTO,
                                  TimeOld, (OPT__SELF_GRAVITY || OPT__EXT_POT), OPT__EXT_ACC,
                                  MIN_DENS, MIN_PRES, MIN_EINT, DUAL_ENERGY_SWITCH,
@@ -546,7 +547,7 @@ void Solver( const Solver_t TSolver, const int lv, const double TimeNew, const d
                                  h_Mag_Array_F_In[ArrayID], h_Mag_Array_F_Out[ArrayID],
                                  h_DE_Array_F_Out[ArrayID], h_Flux_Array[ArrayID], h_Ele_Array[ArrayID],
                                  h_Corner_Array_F[ArrayID], h_Pot_Array_USG_F[ArrayID],
-                                 NPG, dt, dh, OPT__FIXUP_FLUX, OPT__FIXUP_ELECTRIC, Flu_XYZ, OPT__LR_LIMITER, MINMOD_COEFF,
+                                 NPG, dt_fix, dh, OPT__FIXUP_FLUX, OPT__FIXUP_ELECTRIC, Flu_XYZ, OPT__LR_LIMITER, MINMOD_COEFF,
                                  ELBDM_ETA, ELBDM_TAYLOR3_COEFF, ELBDM_TAYLOR3_AUTO,
                                  TimeOld, (OPT__SELF_GRAVITY || OPT__EXT_POT), OPT__EXT_ACC,
                                  MIN_DENS, MIN_PRES, MIN_EINT, DUAL_ENERGY_SWITCH,
@@ -564,7 +565,7 @@ void Solver( const Solver_t TSolver, const int lv, const double TimeNew, const d
          CUAPI_Asyn_PoissonGravitySolver( h_Rho_Array_P[ArrayID], h_Pot_Array_P_In[ArrayID],
                                           h_Pot_Array_P_Out[ArrayID], NULL, h_Corner_Array_PGT[ArrayID],
                                           NULL, NULL, NULL, NULL,
-                                          NPG, dt, dh, SOR_MIN_ITER, SOR_MAX_ITER,
+                                          NPG, dt_fix, dh, SOR_MIN_ITER, SOR_MAX_ITER,
                                           SOR_OMEGA, MG_MAX_ITER, MG_NPRE_SMOOTH, MG_NPOST_SMOOTH,
                                           MG_TOLERATED_ERROR, Poi_Coeff, OPT__POT_INT_SCHEME,
                                           NULL_BOOL, ELBDM_ETA, NULL_REAL, POISSON_ON, GRAVITY_OFF,
@@ -575,7 +576,7 @@ void Solver( const Solver_t TSolver, const int lv, const double TimeNew, const d
          CPU_PoissonGravitySolver       ( h_Rho_Array_P[ArrayID], h_Pot_Array_P_In[ArrayID],
                                           h_Pot_Array_P_Out[ArrayID], NULL, h_Corner_Array_PGT[ArrayID],
                                           NULL, NULL, NULL, NULL,
-                                          NPG, dt, dh, SOR_MIN_ITER, SOR_MAX_ITER,
+                                          NPG, dt_fix, dh, SOR_MIN_ITER, SOR_MAX_ITER,
                                           SOR_OMEGA, MG_MAX_ITER, MG_NPRE_SMOOTH, MG_NPOST_SMOOTH,
                                           MG_TOLERATED_ERROR, Poi_Coeff, OPT__POT_INT_SCHEME,
                                           NULL_BOOL, ELBDM_ETA, NULL_REAL, POISSON_ON, GRAVITY_OFF,
@@ -592,7 +593,7 @@ void Solver( const Solver_t TSolver, const int lv, const double TimeNew, const d
                                           h_Pot_Array_P_Out[ArrayID], h_Flu_Array_G[ArrayID], h_Corner_Array_PGT[ArrayID],
                                           h_Pot_Array_USG_G[ArrayID], h_Flu_Array_USG_G[ArrayID], h_DE_Array_G[ArrayID],
                                           h_Emag_Array_G[ArrayID],
-                                          NPG, dt, dh, NULL_INT, NULL_INT,
+                                          NPG, dt_fix, dh, NULL_INT, NULL_INT,
                                           NULL_REAL, NULL_INT, NULL_INT, NULL_INT,
                                           NULL_REAL, NULL_REAL, (IntScheme_t)NULL_INT,
                                           OPT__GRA_P5_GRADIENT, ELBDM_ETA, ELBDM_LAMBDA, POISSON_OFF, GRAVITY_ON,
@@ -604,7 +605,7 @@ void Solver( const Solver_t TSolver, const int lv, const double TimeNew, const d
                                           h_Pot_Array_P_Out[ArrayID], h_Flu_Array_G[ArrayID], h_Corner_Array_PGT[ArrayID],
                                           h_Pot_Array_USG_G[ArrayID], h_Flu_Array_USG_G[ArrayID], h_DE_Array_G[ArrayID],
                                           h_Emag_Array_G[ArrayID],
-                                          NPG, dt, dh, NULL_INT, NULL_INT,
+                                          NPG, dt_fix, dh, NULL_INT, NULL_INT,
                                           NULL_REAL, NULL_INT, NULL_INT, NULL_INT,
                                           NULL_REAL, NULL_REAL, (IntScheme_t)NULL_INT,
                                           OPT__GRA_P5_GRADIENT, ELBDM_ETA, ELBDM_LAMBDA, POISSON_OFF, GRAVITY_ON,
@@ -621,7 +622,7 @@ void Solver( const Solver_t TSolver, const int lv, const double TimeNew, const d
                                           h_Pot_Array_P_Out[ArrayID], h_Flu_Array_G[ArrayID], h_Corner_Array_PGT[ArrayID],
                                           h_Pot_Array_USG_G[ArrayID], h_Flu_Array_USG_G[ArrayID], h_DE_Array_G[ArrayID],
                                           h_Emag_Array_G[ArrayID],
-                                          NPG, dt, dh, SOR_MIN_ITER, SOR_MAX_ITER,
+                                          NPG, dt_fix, dh, SOR_MIN_ITER, SOR_MAX_ITER,
                                           SOR_OMEGA, MG_MAX_ITER, MG_NPRE_SMOOTH, MG_NPOST_SMOOTH,
                                           MG_TOLERATED_ERROR, Poi_Coeff, OPT__POT_INT_SCHEME,
                                           OPT__GRA_P5_GRADIENT, ELBDM_ETA, ELBDM_LAMBDA, POISSON_ON, GRAVITY_ON,
@@ -633,7 +634,7 @@ void Solver( const Solver_t TSolver, const int lv, const double TimeNew, const d
                                           h_Pot_Array_P_Out[ArrayID], h_Flu_Array_G[ArrayID], h_Corner_Array_PGT[ArrayID],
                                           h_Pot_Array_USG_G[ArrayID], h_Flu_Array_USG_G[ArrayID], h_DE_Array_G[ArrayID],
                                           h_Emag_Array_G[ArrayID],
-                                          NPG, dt, dh, SOR_MIN_ITER, SOR_MAX_ITER,
+                                          NPG, dt_fix, dh, SOR_MIN_ITER, SOR_MAX_ITER,
                                           SOR_OMEGA, MG_MAX_ITER, MG_NPRE_SMOOTH, MG_NPOST_SMOOTH,
                                           MG_TOLERATED_ERROR, Poi_Coeff, OPT__POT_INT_SCHEME,
                                           OPT__GRA_P5_GRADIENT, ELBDM_ETA, ELBDM_LAMBDA, POISSON_ON, GRAVITY_ON,
@@ -646,7 +647,7 @@ void Solver( const Solver_t TSolver, const int lv, const double TimeNew, const d
 
 #     ifdef SUPPORT_GRACKLE
       case GRACKLE_SOLVER :
-         CPU_GrackleSolver( Che_FieldData, Che_Units, NPG, dt );
+         CPU_GrackleSolver( Che_FieldData, Che_Units, NPG, dt_fix );
 
       break;
 #     endif // #ifdef SUPPORT_GRACKLE
@@ -702,14 +703,14 @@ void Solver( const Solver_t TSolver, const int lv, const double TimeNew, const d
                                h_Flu_Array_S_Out[ArrayID],
                                h_Mag_Array_S_In [ArrayID],
                                h_Corner_Array_S [ArrayID],
-                               SrcTerms, NPG, dt, dh, TimeNew, TimeOld, MIN_DENS, MIN_PRES, MIN_EINT,
+                               SrcTerms, NPG, dt_fix, dh, TimeNew, TimeOld, MIN_DENS, MIN_PRES, MIN_EINT,
                                GPU_NSTREAM );
 #        else
          CPU_SrcSolver       ( h_Flu_Array_S_In [ArrayID],
                                h_Flu_Array_S_Out[ArrayID],
                                h_Mag_Array_S_In [ArrayID],
                                h_Corner_Array_S [ArrayID],
-                               SrcTerms, NPG, dt, dh, TimeNew, TimeOld, MIN_DENS, MIN_PRES, MIN_EINT );
+                               SrcTerms, NPG, dt_fix, dh, TimeNew, TimeOld, MIN_DENS, MIN_PRES, MIN_EINT );
 #        endif
       break;
 

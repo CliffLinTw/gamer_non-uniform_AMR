@@ -15,7 +15,7 @@
 
 # executable
 #######################################################################################################
-EXECUTABLE := gamer_correlation_function
+EXECUTABLE := gamer
 
 
 
@@ -40,7 +40,7 @@ SIMU_OPTION += -DGRAVITY
 
 # enable particles
 # --> must enable GRAVITY
-#SIMU_OPTION += -DPARTICLE
+SIMU_OPTION += -DPARTICLE
 
 # support Grackle, a chemistry and radiative cooling library
 # --> must set NCOMP_PASSIVE_USER according to the primordial chemistry network set by GRACKLE_PRIMORDIAL
@@ -74,7 +74,7 @@ SIMU_OPTION += -DRSOLVER=ROE
 # number of user-defined passively advected scalars
 # --> set it to 0 or comment it out if none is required
 # --> useless for RTVD
-SIMU_OPTION += -DNCOMP_PASSIVE_USER=0
+SIMU_OPTION += -DNCOMP_PASSIVE_USER=1
 
 # magnetohydrodynamics
 #SIMU_OPTION += -DMHD
@@ -145,7 +145,7 @@ SIMU_OPTION += -DSTORE_PAR_ACC
 
 # number of user-defined particle attributes
 # --> set it to 0 or comment it out if none is required
-SIMU_OPTION += -DPAR_NATT_USER=0
+SIMU_OPTION += -DPAR_NATT_USER=1
 endif # PARTICLE
 
 
@@ -227,13 +227,13 @@ SIMU_OPTION += -DRANDOM_NUMBER=RNG_GNU_EXT
 # CXX         = icpc                                      # serial compiler
 CXX         = $(MPI_PATH)/bin/mpicxx                    # MPI compiler
 ##CXX         = CC                                        # cray wrapper script
- CXXFLAG     = -g -O3                                    # general flags
-##CXXFLAG     = -g -O3 -std=c++11 #-gxx-name=YOUR_G++
+CXXFLAG     = -g -O3                                    # general flags
+#CXXFLAG     = -g -O3 -std=c++11 #-gxx-name=YOUR_G++
 ##CXXFLAG     = -g -fast
- CXXFLAG    += -w                                       # warning flags
- OPENMPFLAG  = -fopenmp                                  # openmp flag
- LIB         = -limf                                     # libraries and linker flags
-
+CXXFLAG    += -w                                        # warning flags
+OPENMPFLAG  = -fopenmp                                  # openmp flag
+LIB         = -limf                                     # libraries and linker flags
+#
 ## for debug only
 #ifeq "$(filter -DGAMER_DEBUG, $(SIMU_OPTION))" "-DGAMER_DEBUG"
 ##CXXFLAG    += -fstack-protector-all
@@ -249,27 +249,27 @@ CXX         = $(MPI_PATH)/bin/mpicxx                    # MPI compiler
 # gnu
 # -------------------------------------------------------------------------------
 # CXX         = g++                                       # serial compiler
-##CXX         = $(MPI_PATH)/bin/mpicxx                    # MPI compiler
-##CXX         = CC                                        # cray wrapper script
+#CXX         = $(MPI_PATH)/bin/mpicxx                    # MPI compiler
+#CXX         = CC                                        # cray wrapper script
 # CXXFLAG     = -g -O3                                    # general flags
-##CXXFLAG     = -g -O3 -std=c++11
-##CXXFLAG     = -g -Ofast
+#CXXFLAG     = -g -O3 -std=c++11
+#CXXFLAG     = -g -Ofast
 # CXXFLAG    += -Wall -Wextra                             # warning flags
 # CXXFLAG    += -Wno-unused-variable -Wno-unused-parameter \
-#               -Wno-maybe-uninitialized -Wno-unused-but-set-variable \
-#               -Wno-unused-result -Wno-unused-function
+               -Wno-maybe-uninitialized -Wno-unused-but-set-variable \
+               -Wno-unused-result -Wno-unused-function
 # OPENMPFLAG  = -fopenmp                                  # openmp flag
 # LIB         =                                           # libraries and linker flags
 
-## for debug only
-#ifeq "$(filter -DGAMER_DEBUG, $(SIMU_OPTION))" "-DGAMER_DEBUG"
-##CXXFLAG    += -fstack-protector-all
-#endif
-#
-## suppress warning when OpenMP is disabled
-#ifeq "$(filter -DOPENMP, $(SIMU_OPTION))" ""
-# CXXFLAG    += -Wno-unknown-pragmas
-#endif
+# for debug only
+ifeq "$(filter -DGAMER_DEBUG, $(SIMU_OPTION))" "-DGAMER_DEBUG"
+#CXXFLAG    += -fstack-protector-all
+endif
+
+# suppress warning when OpenMP is disabled
+ifeq "$(filter -DOPENMP, $(SIMU_OPTION))" ""
+ CXXFLAG    += -Wno-unknown-pragmas
+endif
 
 
 # CUDA
@@ -286,13 +286,13 @@ CXX         = $(MPI_PATH)/bin/mpicxx                    # MPI compiler
 #######################################################################################################
 
 # template
-CUDA_PATH    :=
-FFTW_PATH    :=
-MPI_PATH     :=
-HDF5_PATH    :=
-GRACKLE_PATH :=
-GSL_PATH     :=
-LIBYT_PATH   :=
+#CUDA_PATH    :=
+#FFTW_PATH    :=
+#MPI_PATH     :=
+#HDF5_PATH    :=
+#GRACKLE_PATH :=
+#GSL_PATH     :=
+#LIBYT_PATH   :=
 
 # NCSA-bluewaters (only need to specify the path of user-installed packages)
 #GRACKLE_PATH :=
@@ -344,9 +344,9 @@ MPI_PATH     := /software/openmpi/default
 #FFTW_PATH    := /software/fftw/2.1.5-gnu-openmpi-4.1.1-ucx_mt
 #MPI_PATH     := /software/openmpi/4.1.1-gnu-ucx_mt
 HDF5_PATH    := /software/hdf5/default
-GRACKLE_PATH :=
+#GRACKLE_PATH :=
 GSL_PATH     := /software/gsl/default
-LIBYT_PATH   := /work1/koarakawaii/libyt/
+#LIBYT_PATH   := /work1/koarakawaii/libyt/
 
 # NTU-hulk (openmpi-intel-qlc)
 #CUDA_PATH    := /opt/gpu/cuda/4.2
