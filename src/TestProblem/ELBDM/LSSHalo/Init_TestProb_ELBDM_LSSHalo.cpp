@@ -1216,19 +1216,19 @@ void Par_AfterAcceleration(const long NPar_ThisRank, const long NPar_AllRank, re
 
      
       /// pow(3/2, -0.5): see meeting 20210805
-
-     if (isnan(VD_Vec[0]) == 0 && isnan(VD_Vec[1]) == 0 && isnan(VD_Vec[2]) == 0 ){   
-        ParVel[0][p] = - V_acc_total_recv[RingID*2+1]/V_acc_total_recv[RingID*2+0]*NormParRadius[1]+Disc_BulkVel[0]+VD_Vec[0];
-        ParVel[1][p] =   V_acc_total_recv[RingID*2+1]/V_acc_total_recv[RingID*2+0]*NormParRadius[0]+Disc_BulkVel[1]+VD_Vec[1];
-        ParVel[2][p] =                                                                              Disc_BulkVel[2]+VD_Vec[2];
-     }
-     else{
-        ParVel[0][p] = - V_acc_total_recv[RingID*2+1]/V_acc_total_recv[RingID*2+0]*NormParRadius[1]+Disc_BulkVel[0];
-        ParVel[1][p] =   V_acc_total_recv[RingID*2+1]/V_acc_total_recv[RingID*2+0]*NormParRadius[0]+Disc_BulkVel[1];
-        ParVel[2][p] =                                                                              Disc_BulkVel[2];
-        Count_Outliers  += 1;
-     }
-
+     if (ParMass[p] < 1.5*Disc_Mass/AddParNPar){
+        if (isnan(VD_Vec[0]) == 0 && isnan(VD_Vec[1]) == 0 && isnan(VD_Vec[2]) == 0 ){   
+           ParVel[0][p] = - V_acc_total_recv[RingID*2+1]/V_acc_total_recv[RingID*2+0]*NormParRadius[1]+Disc_BulkVel[0]+VD_Vec[0];
+           ParVel[1][p] =   V_acc_total_recv[RingID*2+1]/V_acc_total_recv[RingID*2+0]*NormParRadius[0]+Disc_BulkVel[1]+VD_Vec[1];
+           ParVel[2][p] =                                                                              Disc_BulkVel[2]+VD_Vec[2];
+        }
+        else{
+           ParVel[0][p] = - V_acc_total_recv[RingID*2+1]/V_acc_total_recv[RingID*2+0]*NormParRadius[1]+Disc_BulkVel[0];
+           ParVel[1][p] =   V_acc_total_recv[RingID*2+1]/V_acc_total_recv[RingID*2+0]*NormParRadius[0]+Disc_BulkVel[1];
+           ParVel[2][p] =                                                                              Disc_BulkVel[2];
+           Count_Outliers  += 1;
+        }
+      }
    }
 
    if ( MPI_Rank == 0 )

@@ -175,7 +175,7 @@ void Flu_DerivedField_Mach( real Out[], const real FluIn[], const real MagIn[], 
 
 // GAMER
 void EvolveLevel( const int lv, const double dTime_FaLv );
-void InvokeSolver( const Solver_t TSolver, const int lv, const double TimeNew, const double TimeOld, const double dt,
+void InvokeSolver( const Solver_t TSolver, const int lv, const double TimeNew, const double TimeOld, const double dt_in,
                    const double Poi_Coeff, const int SaveSg_Flu, const int SaveSg_Mag, const int SaveSg_Pot,
                    const bool OverlapMPI, const bool Overlap_Sync );
 void Prepare_PatchData( const int lv, const double PrepTime, real *OutputCC, real *OutputFC,
@@ -590,6 +590,7 @@ void CUAPI_MemFree_PoissonGravity();
 #ifdef PARTICLE
 void Par_Init_ByFile();
 void Par_Output_TextFile( const char *comment );
+void Par_Output_BinaryFile( const char *comment );
 void Par_FindHomePatch_UniformGrid( const int lv, const bool OldParOnly,
                                     const long NNewPar, real *NewParAtt[PAR_NATT_TOTAL] );
 void Par_PassParticle2Son_SinglePatch( const int FaLv, const int FaPID );
@@ -622,6 +623,8 @@ void Par_PredictPos( const long NPar, const long *ParList, real *ParPosX, real *
                      const double TargetTime );
 void Par_Init_Attribute();
 void Par_AddParticleAfterInit( const long NNewPar, real *NewParAtt[PAR_NATT_TOTAL] );
+void Par_ScatterParticleData( const long NPar_ThisRank, const long NPar_AllRank, const long AttBitIdx,
+                              real *Data_Send[PAR_NATT_TOTAL], real *Data_Recv[PAR_NATT_TOTAL] );
 FieldIdx_t AddParticleAttribute( const char *InputLabel );
 FieldIdx_t GetParticleAttributeIndex( const char *InputLabel, const Check_t Check );
 #ifdef LOAD_BALANCE

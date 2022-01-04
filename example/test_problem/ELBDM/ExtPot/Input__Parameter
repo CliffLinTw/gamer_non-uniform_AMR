@@ -116,7 +116,6 @@ OPT__EXT_POT                  1           # add external potential    (0=off, 1=
                                           # --> for 2 (table), edit the corresponding parameters below too
 EXT_POT_TABLE_NAME            EmptyTable  # external potential table: filename
 
-
 # initialization
 OPT__INIT                     1           # initialization option: (1=FUNCTION, 2=RESTART, 3=FILE->"UM_IC")
 RESTART_LOAD_NRANK            1           # number of parallel I/O (i.e., number of MPI ranks) for restart [1]

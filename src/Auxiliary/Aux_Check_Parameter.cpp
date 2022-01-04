@@ -298,7 +298,7 @@ void Aux_Check_Parameter()
 
    if ( !OPT__OUTPUT_TOTAL  &&  !OPT__OUTPUT_PART  &&  !OPT__OUTPUT_USER  &&  !OPT__OUTPUT_BASEPS )
 #  ifdef PARTICLE
-   if ( !OPT__OUTPUT_PAR_TEXT )
+   if ( !OPT__OUTPUT_PAR_MODE )
 #  endif
       Aux_Message( stderr, "WARNING : all output options are turned off --> no data will be output !!\n" );
 
@@ -571,6 +571,9 @@ void Aux_Check_Parameter()
 
    if ( OPT__RESET_FLUID  &&   OPT__INIT == INIT_BY_FILE )
       Aux_Message( stderr, "WARNING : \"%s\" will NOT be applied to the input uniform data !!\n", "OPT__RESET_FLUID" );
+
+   if ( OPT__FREEZE_FLUID )
+      Aux_Message( stderr, "REMINDER : \"%s\" will prevent fluid variables from being updated\n", "OPT__FREEZE_FLUID" );
 
    } // if ( MPI_Rank == 0 )
 
